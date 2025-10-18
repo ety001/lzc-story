@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Settings, Play, Clock } from 'lucide-react';
+import { Music, Settings, Play, Clock, PlayCircle } from 'lucide-react';
 import PasswordSetup from '@/components/PasswordSetup';
 import PasswordVerify from '@/components/PasswordVerify';
 import AdminInterface from '@/components/AdminInterface';
@@ -232,24 +232,54 @@ export default function Home() {
                 }, {} as Record<string, PlayHistoryItem[]>)
               ).map(([albumName, items]) => (
                 <div key={albumName} className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-3 border-b border-gray-100 pb-2">{albumName}</h3>
+                  <h3 className="text-lg text-gray-900 mb-3 border-b border-gray-100 pb-2">{albumName}</h3>
                   <div className="space-y-2">
                     {items.slice(0, 2).map((item) => (
                       <div 
                         key={`${item.audio_file_id}-${item.played_at}`} 
-                        className="flex items-center justify-between text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-3 rounded-lg transition-colors border border-transparent hover:border-indigo-200"
+                        className="group flex items-center justify-between cursor-pointer hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 p-4 rounded-xl transition-all duration-200 border border-gray-100 hover:border-indigo-200 hover:shadow-md"
                         onClick={() => handlePlayHistoryClick(item)}
                       >
-                        <div className="flex-1">
-                          <span className="block font-medium text-gray-800 text-base mb-1">{item.filename}</span>
-                          {item.play_time !== undefined && (
-                            <span className="text-xs text-gray-500">
-                              {item.play_time > 0 
-                                ? `播放至 ${Math.floor(item.play_time / 60)}:${(item.play_time % 60).toFixed(0).padStart(2, '0')}`
-                                : ''
-                              }
-                            </span>
-                          )}
+                        <div className="flex items-center space-x-3 flex-1">
+                          {/* 播放图标 */}
+                          <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                            <PlayCircle className="w-5 h-5 text-indigo-600" />
+                          </div>
+                          
+                          {/* 文件信息 */}
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-900 text-xs pr-2 flex-1 min-w-0">
+                                {item.filename}
+                              </span>
+                            </div>
+                            
+                            {/* 播放进度和时间 */}
+                            <div className="flex items-center justify-between mt-1">
+                              {item.play_time !== undefined && item.play_time > 0 ? (
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <Clock className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+                                  <span className="text-sm text-indigo-600 font-medium truncate">
+                                    播放至 {Math.floor(item.play_time / 60)}:{(item.play_time % 60).toFixed(0).padStart(2, '0')}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <Music className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                  <span className="text-sm text-gray-500 truncate">刚开始播放</span>
+                                </div>
+                              )}
+                              
+                              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                                {new Date(item.played_at).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* 悬停时的播放按钮 */}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0 ml-2">
+                          <Play className="w-5 h-5 text-indigo-600" />
                         </div>
                       </div>
                     ))}
