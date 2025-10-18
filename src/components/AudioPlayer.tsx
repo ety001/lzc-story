@@ -359,7 +359,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
           <h1 
-            className="text-xl font-bold text-gray-900 truncate max-w-xs" 
+            className="text-xl font-bold text-gray-700 truncate max-w-xs" 
             title={album.name}
           >
             {album.name}
@@ -379,7 +379,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             <div className="w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-4xl">🎵</span>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            <h2 className="text-lg font-semibold text-gray-700 mb-1">
               {currentFile?.filename || '未知文件'}
             </h2>
             <p className="text-sm text-gray-600">

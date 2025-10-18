@@ -219,7 +219,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">专辑管理</h1>
+          <h1 className="text-2xl font-bold text-gray-700">专辑管理</h1>
           <button
             onClick={() => setShowCreateForm(true)}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
@@ -259,7 +259,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-4">
                     <h3 
-                      className="font-medium text-gray-900 mb-1 max-w-xs" 
+                      className="font-medium text-gray-700 mb-1 max-w-xs" 
                       title={album.name}
                     >
                       {album.name}

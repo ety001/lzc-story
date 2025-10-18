@@ -204,13 +204,13 @@ export default function Home() {
           <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
             <LazyCatIcon />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
-          <p className="text-gray-600">简洁的音频播放器</p>
+          <h1 className="text-3xl font-bold text-gray-700 mb-2">懒猫故事机</h1>
+          <p className="text-gray-500">简洁的音频播放器</p>
         </div>
 
         {/* 播放历史 */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
             <Clock className="w-5 h-5 mr-2" />
             播放历史
           </h2>
@@ -232,7 +232,7 @@ export default function Home() {
                 }, {} as Record<string, PlayHistoryItem[]>)
               ).map(([albumName, items]) => (
                 <div key={albumName} className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="font-medium text-gray-900 mb-2">{albumName}</h3>
+                  <h3 className="font-medium text-gray-700 mb-2">{albumName}</h3>
                   <div className="space-y-2">
                     {items.slice(0, 2).map((item) => (
                       <div 
@@ -267,7 +267,7 @@ export default function Home() {
             className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
           >
             <Settings className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
-            <p className="font-medium text-gray-900">管理</p>
+            <p className="font-medium text-gray-700">管理</p>
             <p className="text-sm text-gray-500">管理专辑</p>
           </button>
           
@@ -276,7 +276,7 @@ export default function Home() {
             className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
           >
             <Play className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
-            <p className="font-medium text-gray-900">播放器</p>
+            <p className="font-medium text-gray-700">播放器</p>
             <p className="text-sm text-gray-500">开始播放</p>
           </button>
         </div>

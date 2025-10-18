@@ -88,8 +88,8 @@ export default function PasswordSetup({ onPasswordSet, onBack }: PasswordSetupPr
           <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
             <LazyCatIcon />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
-          <p className="text-gray-600">请设置管理员密码</p>
+          <h1 className="text-2xl font-bold text-gray-700 mb-2">懒猫故事机</h1>
+          <p className="text-gray-500">请设置管理员密码</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -118,7 +118,7 @@ export default function PasswordSetup({ onPasswordSet, onBack }: PasswordSetupPr
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-500 mb-2">
               确认密码
             </label>
             <div className="relative">

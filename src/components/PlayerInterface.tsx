@@ -145,7 +145,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 truncate max-w-xs" title="选择专辑">选择专辑</h1>
+          <h1 className="text-2xl font-bold text-gray-700 truncate max-w-xs" title="选择专辑">选择专辑</h1>
           <div className="w-5"></div>
         </div>
 
@@ -170,7 +170,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-4">
                     <h3 
-                      className="font-medium text-gray-900 mb-1 max-w-xs" 
+                      className="font-medium text-gray-700 mb-1 max-w-xs" 
                       title={album.name}
                     >
                       {album.name}
