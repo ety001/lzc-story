@@ -232,16 +232,16 @@ export default function Home() {
                 }, {} as Record<string, PlayHistoryItem[]>)
               ).map(([albumName, items]) => (
                 <div key={albumName} className="bg-white rounded-lg shadow-sm p-4">
-                  <h3 className="font-medium text-gray-700 mb-2">{albumName}</h3>
+                  <h3 className="font-semibold text-lg text-gray-900 mb-3 border-b border-gray-100 pb-2">{albumName}</h3>
                   <div className="space-y-2">
                     {items.slice(0, 2).map((item) => (
                       <div 
                         key={`${item.audio_file_id}-${item.played_at}`} 
-                        className="flex items-center justify-between text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
+                        className="flex items-center justify-between text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-3 rounded-lg transition-colors border border-transparent hover:border-indigo-200"
                         onClick={() => handlePlayHistoryClick(item)}
                       >
                         <div className="flex-1">
-                          <span className="block">{item.filename}</span>
+                          <span className="block font-medium text-gray-800 text-base mb-1">{item.filename}</span>
                           {item.play_time !== undefined && (
                             <span className="text-xs text-gray-500">
                               {item.play_time > 0 
