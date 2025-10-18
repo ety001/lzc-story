@@ -22,6 +22,7 @@ interface PlayHistory {
   album_id: number;
   audio_file_id: number;
   played_at: string;
+  play_time?: number; // 播放时间（秒）
 }
 
 // 获取播放历史（按专辑聚合，每个专辑显示最后两条）
@@ -49,7 +50,8 @@ export async function GET() {
           audio_file_id: audioFile.id,
           filename: audioFile.filename,
           filepath: audioFile.filepath,
-          played_at: record.played_at
+          played_at: record.played_at,
+          play_time: record.play_time || 0
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -79,20 +81,34 @@ export async function GET() {
 // 添加播放记录
 export async function POST(request: NextRequest) {
   try {
-    const { albumId, audioFileId } = await request.json();
+    const { albumId, audioFileId, playTime } = await request.json();
     
     if (!albumId || !audioFileId) {
       return NextResponse.json({ error: '专辑ID和音频文件ID不能为空' }, { status: 400 });
     }
 
-    // 插入播放记录
-    db.insert('play_history', {
-      album_id: albumId,
-      audio_file_id: audioFileId,
-      played_at: new Date().toISOString()
-    });
+    // 检查是否已存在相同的播放记录
+    const existingRecord = db.getOne('play_history', (record: PlayHistory) => 
+      record.album_id === albumId && record.audio_file_id === audioFileId
+    ) as PlayHistory | null;
 
-    return NextResponse.json({ message: '播放记录添加成功' });
+    if (existingRecord) {
+      // 更新现有记录
+      db.update('play_history', existingRecord.id, {
+        played_at: new Date().toISOString(),
+        play_time: playTime || 0
+      });
+    } else {
+      // 插入新播放记录
+      db.insert('play_history', {
+        album_id: albumId,
+        audio_file_id: audioFileId,
+        played_at: new Date().toISOString(),
+        play_time: playTime || 0
+      });
+    }
+
+    return NextResponse.json({ message: '播放记录更新成功' });
   } catch (error) {
     console.error('添加播放记录失败:', error);
     return NextResponse.json({ error: '添加播放记录失败' }, { status: 500 });

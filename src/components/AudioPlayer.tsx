@@ -24,9 +24,13 @@ interface AudioPlayerProps {
   album: Album;
   audioFiles: AudioFile[];
   onBack: () => void;
+  selectedHistoryItem?: {
+    audio_file_id: number;
+    play_time?: number;
+  } | null;
 }
 
-export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerProps) {
+export default function AudioPlayer({ album, audioFiles, onBack, selectedHistoryItem }: AudioPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -37,8 +41,47 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
   const [dragTime, setDragTime] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentFile = audioFiles[currentIndex];
+
+  // 处理从播放历史记录进入的情况
+  useEffect(() => {
+    if (selectedHistoryItem && audioFiles.length > 0) {
+      const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
+      if (targetIndex !== -1) {
+        setCurrentIndex(targetIndex);
+        // 如果有播放时间，设置到指定时间并自动播放
+        if (selectedHistoryItem.play_time && selectedHistoryItem.play_time > 0) {
+          setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.currentTime = selectedHistoryItem.play_time!;
+              setCurrentTime(selectedHistoryItem.play_time!);
+              // 自动开始播放
+              audioRef.current.play().then(() => {
+                setIsPlaying(true);
+                startPlayTimeRecording();
+              }).catch((error) => {
+                console.error('自动播放失败:', error);
+              });
+            }
+          }, 1000); // 延迟1秒确保音频加载完成
+        } else {
+          // 如果没有播放时间，也自动开始播放
+          setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.play().then(() => {
+                setIsPlaying(true);
+                startPlayTimeRecording();
+              }).catch((error) => {
+                console.error('自动播放失败:', error);
+              });
+            }
+          }, 1000);
+        }
+      }
+    }
+  }, [selectedHistoryItem, audioFiles]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -71,6 +114,13 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      stopPlayTimeRecording();
+    };
+  }, []);
 
   useEffect(() => {
     if (audioRef.current && currentFile) {
@@ -113,22 +163,48 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
     setShowPlaylist(false);
   };
 
-  const addToPlayHistory = async () => {
+  const addToPlayHistory = async (playTime?: number) => {
     if (currentFile) {
-      try {
-        await fetch('/api/play-history', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            albumId: album.id,
-            audioFileId: currentFile.id,
-          }),
-        });
-      } catch (error) {
-        console.error('添加播放记录失败:', error);
+      const timeToRecord = playTime || currentTime;
+      // 只有当播放时间大于0时才记录
+      if (timeToRecord > 0) {
+        try {
+          await fetch('/api/play-history', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              albumId: album.id,
+              audioFileId: currentFile.id,
+              playTime: timeToRecord,
+            }),
+          });
+        } catch (error) {
+          console.error('添加播放记录失败:', error);
+        }
       }
+    }
+  };
+
+  // 开始定时记录播放时间
+  const startPlayTimeRecording = () => {
+    if (playTimeIntervalRef.current) {
+      clearInterval(playTimeIntervalRef.current);
+    }
+    
+    playTimeIntervalRef.current = setInterval(() => {
+      if (isPlaying && audioRef.current) {
+        addToPlayHistory(audioRef.current.currentTime);
+      }
+    }, 5000); // 每5秒记录一次
+  };
+
+  // 停止定时记录播放时间
+  const stopPlayTimeRecording = () => {
+    if (playTimeIntervalRef.current) {
+      clearInterval(playTimeIntervalRef.current);
+      playTimeIntervalRef.current = null;
     }
   };
 
@@ -139,9 +215,17 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
   };
 
   const handlePlay = async () => {
+    const wasPlaying = isPlaying;
     await togglePlayPause();
-    if (!isPlaying) {
-      addToPlayHistory();
+    
+    if (!wasPlaying) {
+      // 开始播放时，记录当前播放时间并启动定时记录
+      addToPlayHistory(audioRef.current?.currentTime || 0);
+      startPlayTimeRecording();
+    } else {
+      // 暂停时，记录当前播放时间并停止定时记录
+      addToPlayHistory(audioRef.current?.currentTime || 0);
+      stopPlayTimeRecording();
     }
   };
 
@@ -239,9 +323,13 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            返回专辑列表
           </button>
-          <h1 className="text-xl font-bold text-gray-900 truncate">{album.name}</h1>
+          <h1 
+            className="text-xl font-bold text-gray-900 truncate max-w-xs" 
+            title={album.name}
+          >
+            {album.name}
+          </h1>
           <button
             onClick={() => setShowPlaylist(true)}
             className="p-2 text-gray-600 hover:text-gray-900"

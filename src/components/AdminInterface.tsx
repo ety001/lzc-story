@@ -235,8 +235,18 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 mb-1">{album.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">{album.path}</p>
+                    <h3 
+                      className="font-medium text-gray-900 mb-1 truncate max-w-xs" 
+                      title={album.name}
+                    >
+                      {album.name}
+                    </h3>
+                    <p 
+                      className="text-sm text-gray-600 mb-1 truncate max-w-xs" 
+                      title={album.path}
+                    >
+                      {album.path}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {album.audio_count} 个音频文件 • 创建于 {new Date(album.created_at).toLocaleDateString()}
                     </p>

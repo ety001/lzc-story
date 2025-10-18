@@ -21,11 +21,22 @@ interface AudioFile {
   album_name: string;
 }
 
-interface PlayerInterfaceProps {
-  onBack: () => void;
+interface PlayHistoryItem {
+  album_id: number;
+  album_name: string;
+  audio_file_id: number;
+  filename: string;
+  filepath: string;
+  played_at: string;
+  play_time?: number;
 }
 
-export default function PlayerInterface({ onBack }: PlayerInterfaceProps) {
+interface PlayerInterfaceProps {
+  onBack: () => void;
+  selectedHistoryItem?: PlayHistoryItem | null;
+}
+
+export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerInterfaceProps) {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
@@ -36,6 +47,17 @@ export default function PlayerInterface({ onBack }: PlayerInterfaceProps) {
   useEffect(() => {
     loadAlbums();
   }, []);
+
+  // 处理从播放历史记录进入的情况
+  useEffect(() => {
+    if (selectedHistoryItem && albums.length > 0) {
+      const album = albums.find(a => a.id === selectedHistoryItem.album_id);
+      if (album) {
+        setSelectedAlbum(album);
+        loadAudioFiles(album.id);
+      }
+    }
+  }, [selectedHistoryItem, albums]);
 
   const loadAlbums = async () => {
     try {
@@ -92,6 +114,7 @@ export default function PlayerInterface({ onBack }: PlayerInterfaceProps) {
         album={selectedAlbum}
         audioFiles={audioFiles}
         onBack={handleBackToAlbumList}
+        selectedHistoryItem={selectedHistoryItem}
       />
     );
   }
@@ -132,8 +155,18 @@ export default function PlayerInterface({ onBack }: PlayerInterfaceProps) {
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 mb-1">{album.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">{album.path}</p>
+                    <h3 
+                      className="font-medium text-gray-900 mb-1 truncate max-w-xs" 
+                      title={album.name}
+                    >
+                      {album.name}
+                    </h3>
+                    <p 
+                      className="text-sm text-gray-600 mb-1 truncate max-w-xs" 
+                      title={album.path}
+                    >
+                      {album.path}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {album.audio_count} 个音频文件
                     </p>

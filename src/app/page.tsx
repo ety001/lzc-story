@@ -6,6 +6,7 @@ import PasswordSetup from '@/components/PasswordSetup';
 import PasswordVerify from '@/components/PasswordVerify';
 import AdminInterface from '@/components/AdminInterface';
 import PlayerInterface from '@/components/PlayerInterface';
+import AudioPlayer from '@/components/AudioPlayer';
 
 type AppState = 'password-setup' | 'password-verify' | 'home' | 'admin' | 'player';
 
@@ -16,12 +17,16 @@ interface PlayHistoryItem {
   filename: string;
   filepath: string;
   played_at: string;
+  play_time?: number;
 }
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('home');
   const [playHistory, setPlayHistory] = useState<PlayHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<PlayHistoryItem | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
+  const [audioFiles, setAudioFiles] = useState<any[]>([]);
 
   useEffect(() => {
     loadPlayHistory();
@@ -76,8 +81,37 @@ export default function Home() {
     setAppState('player');
   };
 
+  const handlePlayHistoryClick = async (historyItem: PlayHistoryItem) => {
+    setSelectedHistoryItem(historyItem);
+    
+    try {
+      // 加载专辑信息
+      const albumsResponse = await fetch('/api/albums');
+      const albums = await albumsResponse.json();
+      const album = albums.find((a: any) => a.id === historyItem.album_id);
+      
+      if (album) {
+        setSelectedAlbum(album);
+        
+        // 加载音频文件
+        const audioFilesResponse = await fetch(`/api/audio-files?albumId=${album.id}`);
+        const audioFiles = await audioFilesResponse.json();
+        setAudioFiles(audioFiles);
+        
+        setAppState('player');
+      } else {
+        console.error('找不到对应的专辑');
+      }
+    } catch (error) {
+      console.error('加载专辑数据失败:', error);
+    }
+  };
+
   const handleBackToHome = () => {
     setAppState('home');
+    setSelectedHistoryItem(null);
+    setSelectedAlbum(null);
+    setAudioFiles([]);
     loadPlayHistory();
   };
 
@@ -105,6 +139,18 @@ export default function Home() {
   }
 
   if (appState === 'player') {
+    // 如果是从播放历史记录进入，直接显示AudioPlayer
+    if (selectedHistoryItem && selectedAlbum && audioFiles.length > 0) {
+      return (
+        <AudioPlayer
+          album={selectedAlbum}
+          audioFiles={audioFiles}
+          onBack={handleBackToHome}
+          selectedHistoryItem={selectedHistoryItem}
+        />
+      );
+    }
+    // 否则显示PlayerInterface
     return <PlayerInterface onBack={handleBackToHome} />;
   }
 
@@ -148,9 +194,22 @@ export default function Home() {
                   <h3 className="font-medium text-gray-900 mb-2">{albumName}</h3>
                   <div className="space-y-2">
                     {items.slice(0, 2).map((item) => (
-                      <div key={item.audio_file_id} className="flex items-center justify-between text-sm text-gray-600">
-                        <span className="truncate">{item.filename}</span>
-                        <span>{new Date(item.played_at).toLocaleString()}</span>
+                      <div 
+                        key={item.audio_file_id} 
+                        className="flex items-center justify-between text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
+                        onClick={() => handlePlayHistoryClick(item)}
+                      >
+                        <div className="flex-1">
+                          <span className="block">{item.filename}</span>
+                          {item.play_time !== undefined && (
+                            <span className="text-xs text-gray-500">
+                              {item.play_time > 0 
+                                ? `播放至 ${Math.floor(item.play_time / 60)}:${(item.play_time % 60).toFixed(0).padStart(2, '0')}`
+                                : ''
+                              }
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
