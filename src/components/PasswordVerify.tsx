@@ -14,6 +14,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // 禁用浏览器后退功能
   useEffect(() => {
@@ -115,7 +116,37 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
           >
             {loading ? '验证中...' : '验证密码'}
           </button>
+
+          {/* 忘记密码按钮 */}
+          <button
+            type="button"
+            onClick={() => setShowForgotPassword(true)}
+            className="w-full text-gray-500 hover:text-gray-700 text-sm py-2 transition-colors"
+          >
+            忘记密码？
+          </button>
         </form>
+
+        {/* 忘记密码提示弹窗 */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">重置密码</h3>
+              <p className="text-gray-600 mb-6">
+                请将 <code className="bg-gray-100 px-2 py-1 rounded text-sm">data/lzc-story.json</code> 文件中的 
+                <code className="bg-gray-100 px-2 py-1 rounded text-sm">admin_config.password_hash</code> 字段设置为空字符串，即可重置密码。
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowForgotPassword(false)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  知道了
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
