@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
+import LazyCatIcon from './LazyCatIcon';
 
 interface PasswordVerifyProps {
   onPasswordVerified: () => void;
@@ -71,8 +72,8 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
           返回首页
         </button>
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-8 h-8 text-indigo-600" />
+          <div className="mx-auto w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mb-4">
+            <LazyCatIcon className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
           <p className="text-gray-600">请输入管理员密码</p>

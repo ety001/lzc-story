@@ -1,0 +1,36 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 懒猫头部 -->
+  <circle cx="8" cy="7" r="5" fill="#FFB6C1" stroke="#FF69B4" stroke-width="0.5"/>
+  
+  <!-- 懒猫耳朵 -->
+  <path d="M4.5 4.5 Q4 2.5 5 2 Q6 1.5 7 3" fill="#FFB6C1" stroke="#FF69B4" stroke-width="0.5"/>
+  <path d="M11.5 4.5 Q12 2.5 11 2 Q10 1.5 9 3" fill="#FFB6C1" stroke="#FF69B4" stroke-width="0.5"/>
+  
+  <!-- 内耳 -->
+  <path d="M5 4 Q4.5 3.5 5 3 Q5.5 3.5 5 4" fill="#FF69B4"/>
+  <path d="M11 4 Q11.5 3.5 11 3 Q10.5 3.5 11 4" fill="#FF69B4"/>
+  
+  <!-- 懒猫眼睛 -->
+  <ellipse cx="6.5" cy="6" rx="0.8" ry="1" fill="#2D3748"/>
+  <ellipse cx="9.5" cy="6" rx="0.8" ry="1" fill="#2D3748"/>
+  
+  <!-- 眼睛高光 -->
+  <ellipse cx="6.7" cy="5.5" rx="0.3" ry="0.4" fill="#FFFFFF"/>
+  <ellipse cx="9.7" cy="5.5" rx="0.3" ry="0.4" fill="#FFFFFF"/>
+  
+  <!-- 懒猫鼻子 -->
+  <path d="M8 7.5 Q7.5 7 8 7 Q8.5 7 8 7.5" fill="#FF69B4"/>
+  
+  <!-- 懒猫嘴巴 -->
+  <path d="M8 8 Q7 8.5 6 8" stroke="#2D3748" stroke-width="0.4" fill="none"/>
+  <path d="M8 8 Q9 8.5 10 8" stroke="#2D3748" stroke-width="0.4" fill="none"/>
+  
+  <!-- 懒猫身体 -->
+  <ellipse cx="8" cy="12.5" r="4.5" ry="3" fill="#FFB6C1" stroke="#FF69B4" stroke-width="0.5"/>
+  
+  <!-- 懒猫尾巴 -->
+  <path d="M12.5 12.5 Q14.5 11.5 15 10 Q14.5 8.5 12.5 10" fill="#FFB6C1" stroke="#FF69B4" stroke-width="0.5"/>
+  
+  <!-- 懒猫肚子 -->
+  <ellipse cx="8" cy="13" r="3" ry="2" fill="#FFFFFF" opacity="0.8"/>
+</svg>

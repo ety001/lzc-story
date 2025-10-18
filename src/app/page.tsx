@@ -7,6 +7,7 @@ import PasswordVerify from '@/components/PasswordVerify';
 import AdminInterface from '@/components/AdminInterface';
 import PlayerInterface from '@/components/PlayerInterface';
 import AudioPlayer from '@/components/AudioPlayer';
+import LazyCatIcon from '@/components/LazyCatIcon';
 import { getApiUrl } from '@/lib/api';
 
 type AppState = 'password-setup' | 'password-verify' | 'home' | 'admin' | 'player';
@@ -200,8 +201,8 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* 头部 */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-            <Music className="w-8 h-8 text-indigo-600" />
+          <div className="mx-auto w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mb-4">
+            <LazyCatIcon className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
           <p className="text-gray-600">简洁的音频播放器</p>

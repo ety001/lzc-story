@@ -224,8 +224,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             onClick={() => setShowCreateForm(true)}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            创建专辑
+            <Plus className="w-4 h-4 mx-auto" />
           </button>
         </div>
 
@@ -258,9 +257,9 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             albums.map((album) => (
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1">
+                  <div className="flex-1 pr-4">
                     <h3 
-                      className="font-medium text-gray-900 mb-1 truncate max-w-xs" 
+                      className="font-medium text-gray-900 mb-1 max-w-xs" 
                       title={album.name}
                     >
                       {album.name}
