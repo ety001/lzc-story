@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Play, Music } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
+import { getApiUrl } from '@/lib/api';
 
 interface Album {
   id: number;
@@ -61,7 +62,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
 
   const loadAlbums = async () => {
     try {
-      const response = await fetch('/api/albums');
+      const response = await fetch(getApiUrl('/api/albums'));
       const data = await response.json();
       // 确保data是数组
       setAlbums(Array.isArray(data) ? data : []);
@@ -75,7 +76,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
 
   const loadAudioFiles = async (albumId: number) => {
     try {
-      const response = await fetch(`/api/audio-files?albumId=${albumId}`);
+      const response = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
       const data = await response.json();
       // 确保data是数组
       setAudioFiles(Array.isArray(data) ? data : []);

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 interface Album {
   id: number;
@@ -169,7 +170,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
       // 只有当播放时间大于0时才记录
       if (timeToRecord > 0) {
         try {
-          await fetch('/api/play-history', {
+          await fetch(getApiUrl('/api/play-history'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

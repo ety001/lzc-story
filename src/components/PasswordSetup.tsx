@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 interface PasswordSetupProps {
   onPasswordSet: () => void;
@@ -34,7 +35,7 @@ export default function PasswordSetup({ onPasswordSet, onBack }: PasswordSetupPr
     }
 
     try {
-      const response = await fetch('/api/admin-password', {
+      const response = await fetch(getApiUrl('/api/admin-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

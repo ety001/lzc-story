@@ -7,6 +7,7 @@ import PasswordVerify from '@/components/PasswordVerify';
 import AdminInterface from '@/components/AdminInterface';
 import PlayerInterface from '@/components/PlayerInterface';
 import AudioPlayer from '@/components/AudioPlayer';
+import { getApiUrl } from '@/lib/api';
 
 type AppState = 'password-setup' | 'password-verify' | 'home' | 'admin' | 'player';
 
@@ -34,7 +35,7 @@ export default function Home() {
 
   const checkPasswordStatus = async () => {
     try {
-      const response = await fetch('/api/admin-password');
+      const response = await fetch(getApiUrl('/api/admin-password'));
       const data = await response.json();
       
       // 检查admin_config中的password_hash是否为空
@@ -50,7 +51,7 @@ export default function Home() {
 
   const loadPlayHistory = async () => {
     try {
-      const response = await fetch('/api/play-history');
+      const response = await fetch(getApiUrl('/api/play-history'));
       const data = await response.json();
       // 确保data是数组
       setPlayHistory(Array.isArray(data) ? data : []);
@@ -87,7 +88,7 @@ export default function Home() {
     
     try {
       // 加载专辑信息
-      const albumsResponse = await fetch('/api/albums');
+      const albumsResponse = await fetch(getApiUrl('/api/albums'));
       const albums = await albumsResponse.json();
       const album = albums.find((a: any) => a.id === historyItem.album_id);
       
@@ -95,7 +96,7 @@ export default function Home() {
         setSelectedAlbum(album);
         
         // 加载音频文件
-        const audioFilesResponse = await fetch(`/api/audio-files?albumId=${album.id}`);
+        const audioFilesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${album.id}`));
         const audioFiles = await audioFilesResponse.json();
         setAudioFiles(audioFiles);
         

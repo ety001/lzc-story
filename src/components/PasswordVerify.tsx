@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 interface PasswordVerifyProps {
   onPasswordVerified: () => void;
@@ -20,7 +21,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
     setLoading(true);
 
     try {
-      const response = await fetch('/api/admin-password', {
+      const response = await fetch(getApiUrl('/api/admin-password'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

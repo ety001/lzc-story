@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, Music } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 interface Album {
   id: number;
@@ -53,7 +54,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
 
   const loadAlbums = async () => {
     try {
-      const response = await fetch('/api/albums');
+      const response = await fetch(getApiUrl('/api/albums'));
       const data = await response.json();
       // 确保data是数组
       setAlbums(Array.isArray(data) ? data : []);
@@ -67,7 +68,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
 
   const loadFileSystem = async (path: string) => {
     try {
-      const response = await fetch(`/api/filesystem?path=${encodeURIComponent(path)}`);
+      const response = await fetch(getApiUrl(`/api/filesystem?path=${encodeURIComponent(path)}`));
       const data = await response.json();
       setFileSystemItems(data.items);
       setCurrentPath(data.currentPath);
