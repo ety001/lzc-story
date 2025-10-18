@@ -297,8 +297,7 @@ export default function Home() {
             className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
           >
             <Settings className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
-            <p className="font-medium text-gray-700">管理</p>
-            <p className="text-sm text-gray-500">管理专辑</p>
+            <p className="font-medium text-gray-700">管理专辑</p>
           </button>
           
           <button
@@ -307,7 +306,6 @@ export default function Home() {
           >
             <Play className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
             <p className="font-medium text-gray-700">播放器</p>
-            <p className="text-sm text-gray-500">开始播放</p>
           </button>
         </div>
       </div>
