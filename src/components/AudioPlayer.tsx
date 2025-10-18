@@ -394,13 +394,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               <span>{formatTime(duration)}</span>
             </div>
             
-            {/* Loading动画 */}
-            {isSeeking && (
-              <div className="flex justify-center mb-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-              </div>
-            )}
-            
             <div 
               className="w-full bg-gray-200 rounded-full h-2 cursor-pointer relative"
               onClick={handleProgressClick}
@@ -418,13 +411,24 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
                   width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%` 
                 }}
               ></div>
-              {/* 拖拽指示器 */}
+              {/* 拖拽指示器 - 合并loading效果 */}
               <div
-                className="absolute top-1/2 transform -translate-y-1/2 w-4 h-4 bg-indigo-600 rounded-full shadow-lg cursor-pointer hover:bg-indigo-700 transition-colors"
+                className={`absolute top-1/2 transform -translate-y-1/2 w-4 h-4 rounded-full shadow-lg cursor-pointer transition-colors ${
+                  isSeeking 
+                    ? 'bg-indigo-600 animate-pulse' 
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
                 style={{ 
                   left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)` 
                 }}
-              ></div>
+              >
+                {/* 在seeking时显示旋转效果 */}
+                {isSeeking && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
