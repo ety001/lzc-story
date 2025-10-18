@@ -1,0 +1,41 @@
+{
+  "admin_config": [
+    {
+      "id": 1,
+      "password_hash": "$2b$10$wEpQN67WxE7VmPqgxAdj/e3Ty/PGrpfXsOqBKa0KoUijw8q7ySRtW",
+      "created_at": "2025-10-18T18:39:00.966Z"
+    }
+  ],
+  "albums": [],
+  "audio_files": [],
+  "play_history": [
+    {
+      "id": 1,
+      "album_id": 3,
+      "audio_file_id": 39,
+      "played_at": "2025-10-18T18:53:41.026Z",
+      "created_at": "2025-10-18T18:53:41.026Z"
+    },
+    {
+      "id": 2,
+      "album_id": 3,
+      "audio_file_id": 40,
+      "played_at": "2025-10-18T18:54:06.746Z",
+      "created_at": "2025-10-18T18:54:06.746Z"
+    },
+    {
+      "id": 3,
+      "album_id": 2,
+      "audio_file_id": 21,
+      "played_at": "2025-10-18T18:54:41.155Z",
+      "created_at": "2025-10-18T18:54:41.155Z"
+    },
+    {
+      "id": 4,
+      "album_id": 2,
+      "audio_file_id": 21,
+      "played_at": "2025-10-18T18:54:56.796Z",
+      "created_at": "2025-10-18T18:54:56.796Z"
+    }
+  ]
+}

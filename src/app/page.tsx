@@ -1,103 +1,186 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Music, Settings, Play, Clock } from 'lucide-react';
+import PasswordSetup from '@/components/PasswordSetup';
+import PasswordVerify from '@/components/PasswordVerify';
+import AdminInterface from '@/components/AdminInterface';
+import PlayerInterface from '@/components/PlayerInterface';
+
+type AppState = 'password-setup' | 'password-verify' | 'home' | 'admin' | 'player';
+
+interface PlayHistoryItem {
+  album_id: number;
+  album_name: string;
+  audio_file_id: number;
+  filename: string;
+  filepath: string;
+  played_at: string;
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [appState, setAppState] = useState<AppState>('home');
+  const [playHistory, setPlayHistory] = useState<PlayHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    loadPlayHistory();
+  }, []);
+
+  const checkPasswordStatus = async () => {
+    try {
+      const response = await fetch('/api/admin-password');
+      const data = await response.json();
+      
+      if (data.hasPassword) {
+        setAppState('password-verify');
+      } else {
+        setAppState('password-setup');
+      }
+    } catch (error) {
+      console.error('检查密码状态失败:', error);
+    }
+  };
+
+  const loadPlayHistory = async () => {
+    try {
+      const response = await fetch('/api/play-history');
+      const data = await response.json();
+      // 确保data是数组
+      setPlayHistory(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('加载播放历史失败:', error);
+      setPlayHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPlayHistory();
+  }, []);
+
+  const handlePasswordSet = () => {
+    setAppState('admin');
+  };
+
+  const handlePasswordVerified = () => {
+    setAppState('admin');
+  };
+
+  const handleNavigateToAdmin = async () => {
+    await checkPasswordStatus();
+  };
+
+  const handleNavigateToPlayer = () => {
+    setAppState('player');
+  };
+
+  const handleBackToHome = () => {
+    setAppState('home');
+    loadPlayHistory();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">加载中...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    );
+  }
+
+  if (appState === 'password-setup') {
+    return <PasswordSetup onPasswordSet={handlePasswordSet} />;
+  }
+
+  if (appState === 'password-verify') {
+    return <PasswordVerify onPasswordVerified={handlePasswordVerified} />;
+  }
+
+  if (appState === 'admin') {
+    return <AdminInterface onBack={handleBackToHome} />;
+  }
+
+  if (appState === 'player') {
+    return <PlayerInterface onBack={handleBackToHome} />;
+  }
+
+  // 首页
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-8">
+        {/* 头部 */}
+        <div className="text-center mb-8">
+          <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+            <Music className="w-8 h-8 text-indigo-600" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
+          <p className="text-gray-600">简洁的音频播放器</p>
+        </div>
+
+        {/* 播放历史 */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+            <Clock className="w-5 h-5 mr-2" />
+            播放历史
+          </h2>
+          
+          {!Array.isArray(playHistory) || playHistory.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+              <Music className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">暂无播放历史</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(
+                playHistory.reduce((acc, item) => {
+                  if (!acc[item.album_name]) {
+                    acc[item.album_name] = [];
+                  }
+                  acc[item.album_name].push(item);
+                  return acc;
+                }, {} as Record<string, PlayHistoryItem[]>)
+              ).map(([albumName, items]) => (
+                <div key={albumName} className="bg-white rounded-lg shadow-sm p-4">
+                  <h3 className="font-medium text-gray-900 mb-2">{albumName}</h3>
+                  <div className="space-y-2">
+                    {items.slice(0, 2).map((item) => (
+                      <div key={item.audio_file_id} className="flex items-center justify-between text-sm text-gray-600">
+                        <span className="truncate">{item.filename}</span>
+                        <span>{new Date(item.played_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 操作按钮 */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={handleNavigateToAdmin}
+            className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
+          >
+            <Settings className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+            <p className="font-medium text-gray-900">管理</p>
+            <p className="text-sm text-gray-500">管理专辑</p>
+          </button>
+          
+          <button
+            onClick={handleNavigateToPlayer}
+            className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
+          >
+            <Play className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+            <p className="font-medium text-gray-900">播放器</p>
+            <p className="text-sm text-gray-500">开始播放</p>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
