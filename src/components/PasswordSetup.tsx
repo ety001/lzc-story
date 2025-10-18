@@ -85,8 +85,8 @@ export default function PasswordSetup({ onPasswordSet, onBack }: PasswordSetupPr
           返回首页
         </button>
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mb-4">
-            <LazyCatIcon className="w-8 h-8" />
+          <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+            <LazyCatIcon />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">懒猫故事机</h1>
           <p className="text-gray-600">请设置管理员密码</p>

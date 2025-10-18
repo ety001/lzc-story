@@ -5,7 +5,7 @@ interface LazyCatIconProps {
   size?: number;
 }
 
-export default function LazyCatIcon({ className = "w-8 h-8", size = 32 }: LazyCatIconProps) {
+export default function LazyCatIcon({ className = "w-16 h-16", size = 48 }: LazyCatIconProps) {
   return (
     <svg 
       width={size} 
@@ -16,15 +16,15 @@ export default function LazyCatIcon({ className = "w-8 h-8", size = 32 }: LazyCa
       className={className}
     >
       {/* 懒猫头部 */}
-      <circle cx="16" cy="14" r="10" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="1"/>
+      <circle cx="16" cy="14" r="10" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
       
       {/* 懒猫耳朵 */}
-      <path d="M9 9 Q8 6 10 5 Q12 4 14 6" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="1"/>
-      <path d="M23 9 Q24 6 22 5 Q20 4 18 6" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="1"/>
+      <path d="M9 9 Q8 6 10 5 Q12 4 14 6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
+      <path d="M23 9 Q24 6 22 5 Q20 4 18 6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
       
       {/* 内耳 */}
-      <path d="M10 8 Q9 7 10 6 Q11 7 10 8" fill="#FF69B4"/>
-      <path d="M22 8 Q23 7 22 6 Q21 7 22 8" fill="#FF69B4"/>
+      <path d="M10 8 Q9 7 10 6 Q11 7 10 8" fill="#4F46E5"/>
+      <path d="M22 8 Q23 7 22 6 Q21 7 22 8" fill="#4F46E5"/>
       
       {/* 懒猫眼睛 */}
       <ellipse cx="13" cy="12" rx="1.5" ry="2" fill="#2D3748"/>
@@ -35,17 +35,17 @@ export default function LazyCatIcon({ className = "w-8 h-8", size = 32 }: LazyCa
       <ellipse cx="19.5" cy="11" rx="0.5" ry="0.8" fill="#FFFFFF"/>
       
       {/* 懒猫鼻子 */}
-      <path d="M16 15 Q15 14 16 14 Q17 14 16 15" fill="#FF69B4"/>
+      <path d="M16 15 Q15 14 16 14 Q17 14 16 15" fill="#4F46E5"/>
       
       {/* 懒猫嘴巴 */}
       <path d="M16 16 Q14 17 12 16" stroke="#2D3748" strokeWidth="0.8" fill="none"/>
       <path d="M16 16 Q18 17 20 16" stroke="#2D3748" strokeWidth="0.8" fill="none"/>
       
       {/* 懒猫身体 */}
-      <ellipse cx="16" cy="25" r="9" ry="6" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="1"/>
+      <ellipse cx="16" cy="25" r="9" ry="6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
       
       {/* 懒猫尾巴 */}
-      <path d="M25 25 Q29 23 30 20 Q29 17 25 20" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="1"/>
+      <path d="M25 25 Q29 23 30 20 Q29 17 25 20" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
       
       {/* 懒猫肚子 */}
       <ellipse cx="16" cy="26" r="6" ry="4" fill="#FFFFFF" opacity="0.8"/>
