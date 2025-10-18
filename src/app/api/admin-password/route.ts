@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/database';
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
+
+interface AdminConfig {
+  id: number;
+  password_hash: string;
+  created_at: string;
+}
 
 // 检查管理员密码是否已设置
 export async function GET() {
   try {
-    const config = db.getOne('admin_config', () => true);
+    const config = db.getOne('admin_config', () => true) as AdminConfig | null;
     return NextResponse.json({ 
       hasPassword: !!config,
       message: config ? '密码已设置' : '密码未设置'
@@ -27,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查是否已有密码
-    const existingConfig = db.getOne('admin_config', () => true);
+    const existingConfig = db.getOne('admin_config', () => true) as AdminConfig | null;
     if (existingConfig) {
       return NextResponse.json({ error: '密码已设置，无法重复设置' }, { status: 400 });
     }
@@ -54,7 +58,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
     }
 
-    const config = db.getOne('admin_config', () => true);
+    const config = db.getOne('admin_config', () => true) as AdminConfig | null;
     if (!config) {
       return NextResponse.json({ error: '密码未设置' }, { status: 400 });
     }

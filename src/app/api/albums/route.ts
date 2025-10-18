@@ -3,15 +3,31 @@ import db from '@/lib/database';
 import fs from 'fs';
 import path from 'path';
 
+interface Album {
+  id: number;
+  name: string;
+  path: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AudioFile {
+  id: number;
+  album_id: number;
+  filename: string;
+  filepath: string;
+  created_at: string;
+}
+
 // 获取所有专辑
 export async function GET() {
   try {
-    const albums = db.get('albums');
-    const audioFiles = db.get('audio_files');
+    const albums = db.get('albums') as Album[];
+    const audioFiles = db.get('audio_files') as AudioFile[];
     
     // 计算每个专辑的音频文件数量
-    const albumsWithCount = albums.map(album => {
-      const audioCount = audioFiles.filter(file => file.album_id === album.id).length;
+    const albumsWithCount = albums.map((album: Album) => {
+      const audioCount = audioFiles.filter((file: AudioFile) => file.album_id === album.id).length;
       return {
         ...album,
         audio_count: audioCount

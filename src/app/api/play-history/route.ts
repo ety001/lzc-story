@@ -1,20 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/database';
 
+interface Album {
+  id: number;
+  name: string;
+  path: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AudioFile {
+  id: number;
+  album_id: number;
+  filename: string;
+  filepath: string;
+  created_at: string;
+}
+
+interface PlayHistory {
+  id: number;
+  album_id: number;
+  audio_file_id: number;
+  played_at: string;
+}
+
 // 获取播放历史（按专辑聚合，每个专辑显示最后两条）
 export async function GET() {
   try {
-    const playHistory = db.get('play_history');
-    const albums = db.get('albums');
-    const audioFiles = db.get('audio_files');
+    const playHistory = db.get('play_history') as PlayHistory[];
+    const albums = db.get('albums') as Album[];
+    const audioFiles = db.get('audio_files') as AudioFile[];
     
     // 创建查找映射
-    const albumMap = new Map(albums.map(album => [album.id, album]));
-    const audioFileMap = new Map(audioFiles.map(file => [file.id, file]));
+    const albumMap = new Map(albums.map((album: Album) => [album.id, album]));
+    const audioFileMap = new Map(audioFiles.map((file: AudioFile) => [file.id, file]));
     
     // 处理播放历史数据
     const history = playHistory
-      .map(record => {
+      .map((record: PlayHistory) => {
         const album = albumMap.get(record.album_id);
         const audioFile = audioFileMap.get(record.audio_file_id);
         
@@ -29,7 +52,7 @@ export async function GET() {
           played_at: record.played_at
         };
       })
-      .filter(Boolean)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime());
     
     // 按专辑分组，每个专辑最多显示2条
