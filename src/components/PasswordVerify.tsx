@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 
@@ -14,6 +14,21 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 禁用浏览器后退功能
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

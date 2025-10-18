@@ -47,6 +47,19 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
 
   useEffect(() => {
     loadAlbums();
+    
+    // 禁用浏览器后退功能
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   // 处理从播放历史记录进入的情况
@@ -115,6 +128,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
         album={selectedAlbum}
         audioFiles={audioFiles}
         onBack={handleBackToAlbumList}
+        autoPlay={true}
         selectedHistoryItem={selectedHistoryItem}
       />
     );
@@ -131,8 +145,8 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">选择专辑</h1>
-          <div></div>
+          <h1 className="text-2xl font-bold text-gray-900 truncate max-w-xs" title="选择专辑">选择专辑</h1>
+          <div className="w-5"></div>
         </div>
 
         {/* 错误提示 */}
@@ -154,19 +168,13 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
             albums.map((album) => (
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1">
+                  <div className="flex-1 pr-4">
                     <h3 
-                      className="font-medium text-gray-900 mb-1 truncate max-w-xs" 
+                      className="font-medium text-gray-900 mb-1 max-w-xs" 
                       title={album.name}
                     >
                       {album.name}
                     </h3>
-                    <p 
-                      className="text-sm text-gray-600 mb-1 truncate max-w-xs" 
-                      title={album.path}
-                    >
-                      {album.path}
-                    </p>
                     <p className="text-xs text-gray-500">
                       {album.audio_count} 个音频文件
                     </p>

@@ -25,13 +25,14 @@ interface AudioPlayerProps {
   album: Album;
   audioFiles: AudioFile[];
   onBack: () => void;
+  autoPlay?: boolean;
   selectedHistoryItem?: {
     audio_file_id: number;
     play_time?: number;
   } | null;
 }
 
-export default function AudioPlayer({ album, audioFiles, onBack, selectedHistoryItem }: AudioPlayerProps) {
+export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = false, selectedHistoryItem }: AudioPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -41,10 +42,27 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentFile = audioFiles[currentIndex];
+
+  // 禁用浏览器后退功能和清理定时器
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      stopPlayTimeRecording();
+    };
+  }, []);
 
   // 处理从播放历史记录进入的情况
   useEffect(() => {
@@ -97,15 +115,21 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
           setIsPlaying(false);
         }
       };
+      const handleSeeking = () => setIsSeeking(true);
+      const handleSeeked = () => setIsSeeking(false);
 
       audio.addEventListener('timeupdate', updateTime);
       audio.addEventListener('loadedmetadata', updateDuration);
       audio.addEventListener('ended', handleEnded);
+      audio.addEventListener('seeking', handleSeeking);
+      audio.addEventListener('seeked', handleSeeked);
 
       return () => {
         audio.removeEventListener('timeupdate', updateTime);
         audio.removeEventListener('loadedmetadata', updateDuration);
         audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('seeking', handleSeeking);
+        audio.removeEventListener('seeked', handleSeeked);
       };
     }
   }, [currentIndex, audioFiles.length]);
@@ -116,34 +140,40 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
     }
   }, [volume]);
 
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      stopPlayTimeRecording();
-    };
-  }, []);
-
   useEffect(() => {
     if (audioRef.current && currentFile) {
       audioRef.current.src = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
       if (isPlaying) {
         audioRef.current.play();
+      } else if (autoPlay) {
+        // 延迟1秒后自动播放
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.play().then(() => {
+              setIsPlaying(true);
+              startPlayTimeRecording();
+            }).catch((error) => {
+              console.error('自动播放失败:', error);
+            });
+          }
+        }, 1000);
       }
     }
-  }, [currentIndex, currentFile]);
+  }, [currentIndex, currentFile, autoPlay]);
 
   const togglePlayPause = async () => {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
         try {
           await audioRef.current.play();
+          setIsPlaying(true);
         } catch (error) {
           console.error('播放失败:', error);
         }
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -239,6 +269,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
     
+    setIsSeeking(true);
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
   };
@@ -263,6 +294,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
 
   const handleProgressMouseUp = () => {
     if (isDragging && audioRef.current) {
+      setIsSeeking(true);
       audioRef.current.currentTime = dragTime;
       setCurrentTime(dragTime);
     }
@@ -306,6 +338,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
 
   const handleProgressTouchEnd = () => {
     if (isDragging && audioRef.current) {
+      setIsSeeking(true);
       audioRef.current.currentTime = dragTime;
       setCurrentTime(dragTime);
     }
@@ -360,6 +393,14 @@ export default function AudioPlayer({ album, audioFiles, onBack, selectedHistory
               <span>{formatTime(isDragging ? dragTime : currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
+            
+            {/* Loading动画 */}
+            {isSeeking && (
+              <div className="flex justify-center mb-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+              </div>
+            )}
+            
             <div 
               className="w-full bg-gray-200 rounded-full h-2 cursor-pointer relative"
               onClick={handleProgressClick}
