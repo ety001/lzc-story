@@ -36,7 +36,7 @@ function initializeDatabase() {
 initializeDatabase();
 
 // 读取数据库
-async function readDB() {
+function readDB() {
   try {
     const data = fs.readFileSync(dbPath, 'utf8');
     return JSON.parse(data);

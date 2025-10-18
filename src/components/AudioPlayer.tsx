@@ -33,6 +33,9 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
   const [duration, setDuration] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [volume, setVolume] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragTime, setDragTime] = useState(0);
+  const [hasDragged, setHasDragged] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const currentFile = audioFiles[currentIndex];
@@ -142,6 +145,90 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
     }
   };
 
+  // 进度条拖拽处理
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration || hasDragged) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const newTime = percentage * duration;
+    
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setHasDragged(false);
+    handleProgressClick(e);
+  };
+
+  const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !duration) return;
+    
+    setHasDragged(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const moveX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, moveX / rect.width));
+    const newTime = percentage * duration;
+    
+    setDragTime(newTime);
+  };
+
+  const handleProgressMouseUp = () => {
+    if (isDragging && audioRef.current) {
+      audioRef.current.currentTime = dragTime;
+      setCurrentTime(dragTime);
+    }
+    setIsDragging(false);
+    // 延迟重置拖拽标志，避免立即触发点击事件
+    setTimeout(() => setHasDragged(false), 100);
+  };
+
+  const handleProgressMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // 触摸事件处理（移动设备支持）
+  const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setHasDragged(false);
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const percentage = touchX / rect.width;
+    const newTime = percentage * duration;
+    
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const handleProgressTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging || !duration) return;
+    
+    setHasDragged(true);
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, touchX / rect.width));
+    const newTime = percentage * duration;
+    
+    setDragTime(newTime);
+  };
+
+  const handleProgressTouchEnd = () => {
+    if (isDragging && audioRef.current) {
+      audioRef.current.currentTime = dragTime;
+      setCurrentTime(dragTime);
+    }
+    setIsDragging(false);
+    // 延迟重置拖拽标志，避免立即触发点击事件
+    setTimeout(() => setHasDragged(false), 100);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
@@ -181,13 +268,32 @@ export default function AudioPlayer({ album, audioFiles, onBack }: AudioPlayerPr
           {/* 进度条 */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(isDragging ? dragTime : currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="w-full bg-gray-200 rounded-full h-2 cursor-pointer relative"
+              onClick={handleProgressClick}
+              onMouseDown={handleProgressMouseDown}
+              onMouseMove={handleProgressMouseMove}
+              onMouseUp={handleProgressMouseUp}
+              onMouseLeave={handleProgressMouseLeave}
+              onTouchStart={handleProgressTouchStart}
+              onTouchMove={handleProgressTouchMove}
+              onTouchEnd={handleProgressTouchEnd}
+            >
               <div
                 className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                style={{ 
+                  width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%` 
+                }}
+              ></div>
+              {/* 拖拽指示器 */}
+              <div
+                className="absolute top-1/2 transform -translate-y-1/2 w-4 h-4 bg-indigo-600 rounded-full shadow-lg cursor-pointer hover:bg-indigo-700 transition-colors"
+                style={{ 
+                  left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)` 
+                }}
               ></div>
             </div>
           </div>
