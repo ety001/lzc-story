@@ -17,14 +17,29 @@ const defaultData = {
   play_history: []
 };
 
-// 读取数据库
-function readDB() {
+// 初始化数据库（程序启动时调用）
+function initializeDatabase() {
   try {
-    if (fs.existsSync(dbPath)) {
-      const data = fs.readFileSync(dbPath, 'utf8');
-      return JSON.parse(data);
+    if (!fs.existsSync(dbPath)) {
+      console.log('数据库文件不存在，正在初始化...');
+      writeDB(defaultData);
+      console.log('数据库初始化完成');
+    } else {
+      console.log('数据库文件已存在');
     }
-    return defaultData;
+  } catch (error) {
+    console.error('数据库初始化失败:', error);
+  }
+}
+
+// 程序启动时立即初始化数据库
+initializeDatabase();
+
+// 读取数据库
+async function readDB() {
+  try {
+    const data = fs.readFileSync(dbPath, 'utf8');
+    return JSON.parse(data);
   } catch (error) {
     console.error('读取数据库失败:', error);
     return defaultData;
