@@ -376,7 +376,12 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-auto">
           {/* 专辑信息 */}
           <div className="text-center mb-8">
-            <div className="w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className={`w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-300 ${
+              isPlaying ? 'animate-spin' : ''
+            }`} style={{
+              animationDuration: '10s',
+              animationPlayState: isPlaying ? 'running' : 'paused'
+            }}>
               <span className="text-4xl">🎵</span>
             </div>
             <h2 className="text-lg font-semibold text-gray-700 mb-1">
