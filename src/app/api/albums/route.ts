@@ -34,7 +34,13 @@ export async function GET() {
       };
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
-    return NextResponse.json(albumsWithCount);
+    return NextResponse.json(albumsWithCount, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   } catch (error) {
     console.error('获取专辑列表失败:', error);
     return NextResponse.json({ error: '获取专辑列表失败' }, { status: 500 });

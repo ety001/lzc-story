@@ -35,10 +35,21 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
   const [currentPath, setCurrentPath] = useState('/');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
   useEffect(() => {
     loadAlbums();
   }, []);
+
+  // 消息自动消失
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
 
   const loadAlbums = async () => {
     try {
@@ -193,7 +204,6 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            返回首页
           </button>
           <h1 className="text-2xl font-bold text-gray-900">专辑管理</h1>
           <button

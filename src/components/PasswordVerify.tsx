@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 interface PasswordVerifyProps {
   onPasswordVerified: () => void;
+  onBack: () => void;
 }
 
-export default function PasswordVerify({ onPasswordVerified }: PasswordVerifyProps) {
+export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordVerifyProps) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,14 @@ export default function PasswordVerify({ onPasswordVerified }: PasswordVerifyPro
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+        {/* 返回按钮 */}
+        <button
+          onClick={onBack}
+          className="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          返回首页
+        </button>
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
             <Lock className="w-8 h-8 text-indigo-600" />

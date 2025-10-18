@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
       currentPath: dirPath,
       parentPath: path.dirname(dirPath),
       items
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
   } catch (error) {
     return NextResponse.json({ error: '获取目录结构失败' }, { status: 500 });

@@ -43,7 +43,13 @@ export async function GET(request: NextRequest) {
       };
     }).sort((a, b) => a.filename.localeCompare(b.filename));
     
-    return NextResponse.json(audioFilesWithAlbumName);
+    return NextResponse.json(audioFilesWithAlbumName, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   } catch (error) {
     console.error('获取音频文件列表失败:', error);
     return NextResponse.json({ error: '获取音频文件列表失败' }, { status: 500 });

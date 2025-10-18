@@ -37,10 +37,11 @@ export default function Home() {
       const response = await fetch('/api/admin-password');
       const data = await response.json();
       
-      if (data.hasPassword) {
-        setAppState('password-verify');
-      } else {
+      // 检查admin_config中的password_hash是否为空
+      if (!data.password_hash || data.password_hash.trim() === '') {
         setAppState('password-setup');
+      } else {
+        setAppState('password-verify');
       }
     } catch (error) {
       console.error('检查密码状态失败:', error);
@@ -127,11 +128,11 @@ export default function Home() {
   }
 
   if (appState === 'password-setup') {
-    return <PasswordSetup onPasswordSet={handlePasswordSet} />;
+    return <PasswordSetup onPasswordSet={handlePasswordSet} onBack={handleBackToHome} />;
   }
 
   if (appState === 'password-verify') {
-    return <PasswordVerify onPasswordVerified={handlePasswordVerified} />;
+    return <PasswordVerify onPasswordVerified={handlePasswordVerified} onBack={handleBackToHome} />;
   }
 
   if (appState === 'admin') {
@@ -195,7 +196,7 @@ export default function Home() {
                   <div className="space-y-2">
                     {items.slice(0, 2).map((item) => (
                       <div 
-                        key={item.audio_file_id} 
+                        key={`${item.audio_file_id}-${item.played_at}`} 
                         className="flex items-center justify-between text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
                         onClick={() => handlePlayHistoryClick(item)}
                       >

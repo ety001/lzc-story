@@ -13,8 +13,15 @@ export async function GET() {
   try {
     const config = db.getOne('admin_config', () => true) as AdminConfig | null;
     return NextResponse.json({ 
-      hasPassword: !!config,
-      message: config ? '密码已设置' : '密码未设置'
+      hasPassword: !!config && config.password_hash && config.password_hash.trim() !== '',
+      password_hash: config?.password_hash || '',
+      message: config && config.password_hash && config.password_hash.trim() !== '' ? '密码已设置' : '密码未设置'
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
   } catch (error) {
     return NextResponse.json({ error: '检查密码状态失败' }, { status: 500 });
@@ -32,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // 检查是否已有密码
     const existingConfig = db.getOne('admin_config', () => true) as AdminConfig | null;
-    if (existingConfig) {
+    if (existingConfig && existingConfig.password_hash && existingConfig.password_hash.trim() !== '') {
       return NextResponse.json({ error: '密码已设置，无法重复设置' }, { status: 400 });
     }
 
@@ -41,7 +48,13 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // 保存到数据库
-    db.insert('admin_config', { password_hash: passwordHash });
+    if (existingConfig) {
+      // 如果配置记录已存在但password_hash为空，则更新
+      db.update('admin_config', existingConfig.id, { password_hash: passwordHash });
+    } else {
+      // 如果配置记录不存在，则创建新记录
+      db.insert('admin_config', { password_hash: passwordHash });
+    }
 
     return NextResponse.json({ message: '密码设置成功' });
   } catch (error) {

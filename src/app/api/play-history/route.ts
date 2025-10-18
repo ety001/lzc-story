@@ -71,7 +71,13 @@ export async function GET() {
     // 展平结果
     const result = Object.values(groupedHistory).flat();
     
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   } catch (error) {
     console.error('获取播放历史失败:', error);
     return NextResponse.json({ error: '获取播放历史失败' }, { status: 500 });
