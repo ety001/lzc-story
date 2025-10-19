@@ -37,16 +37,11 @@ export default function Home() {
     const handlePopState = (event: PopStateEvent) => {
       // 阻止默认的后退行为
       event.preventDefault();
-      // 推送当前状态到历史记录，防止后退
-      window.history.pushState(null, '', window.location.href);
     };
 
     // 添加popstate事件监听器
     window.addEventListener('popstate', handlePopState);
     
-    // 推送初始状态到历史记录
-    window.history.pushState(null, '', window.location.href);
-
     // 清理函数
     return () => {
       window.removeEventListener('popstate', handlePopState);
@@ -82,29 +77,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadPlayHistory();
-    
-    // 禁用浏览器后退功能
-    const handlePopState = (event: PopStateEvent) => {
-      // 阻止默认的后退行为
-      event.preventDefault();
-      // 推送当前状态到历史记录，防止后退
-      window.history.pushState(null, '', window.location.href);
-    };
-
-    // 添加popstate事件监听器
-    window.addEventListener('popstate', handlePopState);
-    
-    // 推送初始状态到历史记录
-    window.history.pushState(null, '', window.location.href);
-
-    // 清理函数
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, []);
 
   const handlePasswordSet = () => {
     setAppState('admin');

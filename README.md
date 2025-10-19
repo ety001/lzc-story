@@ -88,7 +88,7 @@ src/
 │   ├── PasswordVerify.tsx   # 密码验证
 │   └── PlayerInterface.tsx  # 播放器界面
 └── lib/
-    └── database.ts          # 数据库配置
+    └── sqlite-database.ts    # SQLite数据库配置
 ```
 
 ## 数据库结构

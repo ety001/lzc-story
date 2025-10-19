@@ -134,8 +134,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">重置密码</h3>
               <p className="text-gray-600 mb-6">
-                请将 <code className="bg-gray-100 px-2 py-1 rounded text-sm">data/lzc-story.json</code> 文件中的 
-                <code className="bg-gray-100 px-2 py-1 rounded text-sm">admin_config.password_hash</code> 字段设置为空字符串，即可重置密码。
+                请将 <code className="bg-gray-100 px-2 py-1 rounded text-sm">data/lzc-story.db</code> 删除并重启服务器，即可重置密码。
               </p>
               <div className="flex justify-end">
                 <button

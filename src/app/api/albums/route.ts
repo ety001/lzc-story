@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/database';
+import db from '@/lib/sqlite-database';
 import fs from 'fs';
 import path from 'path';
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查专辑名是否已存在
-    const existingAlbum = db.getOne('albums', (album: any) => album.name === name);
+    const existingAlbum = db.getOne('albums', 'name = ?', [name]);
     if (existingAlbum) {
       return NextResponse.json({ error: '专辑名已存在' }, { status: 400 });
     }
@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 检查专辑是否存在
-    const album = db.getOne('albums', (album: any) => album.id === id);
+    const album = db.getOne('albums', 'id = ?', [id.toString()]);
     if (!album) {
       return NextResponse.json({ error: '专辑不存在' }, { status: 404 });
     }
@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest) {
 
     // 如果路径改变，删除旧的音频文件记录并重新扫描
     if (albumPath && albumPath !== album.path) {
-      const audioFiles = db.get('audio_files', (file: any) => file.album_id === id);
+      const audioFiles = db.get('audio_files', 'album_id = ?', [id.toString()]);
       audioFiles.forEach((file: any) => {
         db.delete('audio_files', file.id);
       });
@@ -140,19 +140,19 @@ export async function DELETE(request: NextRequest) {
     const albumId = parseInt(id);
 
     // 检查专辑是否存在
-    const album = db.getOne('albums', (album: any) => album.id === albumId);
+    const album = db.getOne('albums', 'id = ?', [albumId.toString()]);
     if (!album) {
       return NextResponse.json({ error: '专辑不存在' }, { status: 404 });
     }
 
     // 删除相关的音频文件
-    const audioFiles = db.get('audio_files', (file: any) => file.album_id === albumId);
+    const audioFiles = db.get('audio_files', 'album_id = ?', [albumId.toString()]);
     audioFiles.forEach((file: any) => {
       db.delete('audio_files', file.id);
     });
 
     // 删除相关的播放历史
-    const playHistory = db.get('play_history', (record: any) => record.album_id === albumId);
+    const playHistory = db.get('play_history', 'album_id = ?', [albumId.toString()]);
     playHistory.forEach((record: any) => {
       db.delete('play_history', record.id);
     });

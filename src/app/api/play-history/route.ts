@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/database';
+import db from '@/lib/sqlite-database';
 
 interface Album {
   id: number;
@@ -94,9 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查是否已存在相同的播放记录
-    const existingRecord = db.getOne('play_history', (record: PlayHistory) => 
-      record.album_id === albumId && record.audio_file_id === audioFileId
-    ) as PlayHistory | null;
+    const existingRecord = db.getOne('play_history', 'album_id = ? AND audio_file_id = ?', [albumId.toString(), audioFileId.toString()]) as PlayHistory | null;
 
     if (existingRecord) {
       // 更新现有记录

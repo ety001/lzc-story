@@ -45,6 +45,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const [isSeeking, setIsSeeking] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPlayingRef = useRef(false);
 
   const currentFile = audioFiles[currentIndex];
 
@@ -79,6 +80,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               // 自动开始播放
               audioRef.current.play().then(() => {
                 setIsPlaying(true);
+                isPlayingRef.current = true;
                 startPlayTimeRecording();
               }).catch((error) => {
                 console.error('自动播放失败:', error);
@@ -91,6 +93,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             if (audioRef.current) {
               audioRef.current.play().then(() => {
                 setIsPlaying(true);
+                isPlayingRef.current = true;
                 startPlayTimeRecording();
               }).catch((error) => {
                 console.error('自动播放失败:', error);
@@ -113,6 +116,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           setCurrentIndex(currentIndex + 1);
         } else {
           setIsPlaying(false);
+          isPlayingRef.current = false;
         }
       };
       const handleSeeking = () => setIsSeeking(true);
@@ -151,6 +155,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           if (audioRef.current) {
             audioRef.current.play().then(() => {
               setIsPlaying(true);
+              isPlayingRef.current = true;
               startPlayTimeRecording();
             }).catch((error) => {
               console.error('自动播放失败:', error);
@@ -166,10 +171,12 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
+        isPlayingRef.current = false;
       } else {
         try {
           await audioRef.current.play();
           setIsPlaying(true);
+          isPlayingRef.current = true;
         } catch (error) {
           console.error('播放失败:', error);
         }
@@ -220,13 +227,16 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   // 开始定时记录播放时间
   const startPlayTimeRecording = () => {
+    console.log('start play time recording:', isPlayingRef.current, audioRef?.current?.currentTime);
     if (playTimeIntervalRef.current) {
       clearInterval(playTimeIntervalRef.current);
     }
     
     playTimeIntervalRef.current = setInterval(() => {
-      if (isPlaying && audioRef.current) {
+      console.log('play interval:', isPlayingRef.current, audioRef?.current?.currentTime);
+      if (isPlayingRef.current && audioRef.current) {
         addToPlayHistory(audioRef.current.currentTime);
+        console.log('记录播放时间:', audioRef.current.currentTime);
       }
     }, 5000); // 每5秒记录一次
   };
@@ -249,15 +259,18 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     const wasPlaying = isPlaying;
     await togglePlayPause();
     
-    if (!wasPlaying) {
-      // 开始播放时，记录当前播放时间并启动定时记录
-      addToPlayHistory(audioRef.current?.currentTime || 0);
-      startPlayTimeRecording();
-    } else {
-      // 暂停时，记录当前播放时间并停止定时记录
-      addToPlayHistory(audioRef.current?.currentTime || 0);
-      stopPlayTimeRecording();
-    }
+    // 等待状态更新
+    setTimeout(() => {
+      if (!wasPlaying) {
+        // 开始播放时，记录当前播放时间并启动定时记录
+        addToPlayHistory(audioRef.current?.currentTime || 0);
+        startPlayTimeRecording();
+      } else {
+        // 暂停时，记录当前播放时间并停止定时记录
+        addToPlayHistory(audioRef.current?.currentTime || 0);
+        stopPlayTimeRecording();
+      }
+    }, 100);
   };
 
   // 进度条拖拽处理

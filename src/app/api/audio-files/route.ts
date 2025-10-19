@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/database';
+import db from '@/lib/sqlite-database';
 
 interface Album {
   id: number;
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const albumIdNum = parseInt(albumId);
-    const audioFiles = db.get('audio_files', (file: AudioFile) => file.album_id === albumIdNum) as AudioFile[];
+    const audioFiles = db.get('audio_files', 'album_id = ?', [albumIdNum.toString()]) as AudioFile[];
     const albums = db.get('albums') as Album[];
     
     // 创建专辑名称映射
