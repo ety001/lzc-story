@@ -32,20 +32,6 @@ export default function Home() {
 
   useEffect(() => {
     loadPlayHistory();
-    
-    // 禁用浏览器后退功能
-    const handlePopState = (event: PopStateEvent) => {
-      // 阻止默认的后退行为
-      event.preventDefault();
-    };
-
-    // 添加popstate事件监听器
-    window.addEventListener('popstate', handlePopState);
-    
-    // 清理函数
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
   }, []);
 
   const checkPasswordStatus = async () => {

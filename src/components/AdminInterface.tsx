@@ -38,19 +38,6 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
   const [success, setSuccess] = useState('');
   useEffect(() => {
     loadAlbums();
-    
-    // 禁用浏览器后退功能
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault();
-      window.history.pushState(null, '', window.location.href);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    window.history.pushState(null, '', window.location.href);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
   }, []);
 
   // 消息自动消失

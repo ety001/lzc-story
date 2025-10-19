@@ -51,16 +51,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   // 禁用浏览器后退功能和清理定时器
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault();
-      window.history.pushState(null, '', window.location.href);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    window.history.pushState(null, '', window.location.href);
-
     return () => {
-      window.removeEventListener('popstate', handlePopState);
       stopPlayTimeRecording();
     };
   }, []);

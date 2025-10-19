@@ -47,19 +47,6 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
 
   useEffect(() => {
     loadAlbums();
-    
-    // 禁用浏览器后退功能
-    const handlePopState = (event: PopStateEvent) => {
-      event.preventDefault();
-      window.history.pushState(null, '', window.location.href);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    window.history.pushState(null, '', window.location.href);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
   }, []);
 
   // 处理从播放历史记录进入的情况
