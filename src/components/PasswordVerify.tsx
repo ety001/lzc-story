@@ -23,8 +23,8 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
     setLoading(true);
 
     try {
-      const response = await fetch(getApiUrl('/api/admin-password'), {
-        method: 'PUT',
+      const response = await fetch(getApiUrl('/api/session'), {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -119,7 +119,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">重置密码</h3>
               <p className="text-gray-600 mb-6">
-                请将 <code className="bg-gray-100 px-2 py-1 rounded text-sm">data/lzc-story.db</code> 删除并重启服务器，即可重置密码。
+                请停止服务后，将 <code className="bg-gray-100 px-2 py-1 rounded text-sm">data/lzc-story.db</code> 删除并重启服务，即可重置密码。
               </p>
               <div className="flex justify-end">
                 <button

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
     }
 
-    // 检查是否已有密码
+    // 检查是否已有密码（只有在密码不为空时才阻止重复设置）
     const existingConfig = db.getOne('admin_config', '1=1') as AdminConfig | null;
     if (existingConfig && existingConfig.password_hash && existingConfig.password_hash.trim() !== '') {
       return NextResponse.json({ error: '密码已设置，无法重复设置' }, { status: 400 });
