@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  lzc-story:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # 持久化数据目录
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/admin-password"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
