@@ -126,8 +126,6 @@ function executeStatement(sql: string, params: string[] = []): { lastInsertRowid
     });
     
     // 使用临时文件来避免命令行参数长度限制
-    const fs = require('fs');
-    const path = require('path');
     const tempFile = path.join(process.cwd(), 'temp_sql.sql');
     
     // 写入SQL到临时文件
