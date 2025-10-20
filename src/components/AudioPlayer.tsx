@@ -62,35 +62,41 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
       if (targetIndex !== -1) {
         setCurrentIndex(targetIndex);
-        // 如果有播放时间，设置到指定时间并自动播放
-        if (selectedHistoryItem.play_time && selectedHistoryItem.play_time > 0) {
-          setTimeout(() => {
-            if (audioRef.current) {
-              audioRef.current.currentTime = selectedHistoryItem.play_time!;
-              setCurrentTime(selectedHistoryItem.play_time!);
-              // 自动开始播放
-              audioRef.current.play().then(() => {
-                setIsPlaying(true);
-                isPlayingRef.current = true;
-                startPlayTimeRecording();
-              }).catch((error) => {
-                console.error('自动播放失败:', error);
-              });
-            }
-          }, 1000); // 延迟1秒确保音频加载完成
-        } else {
-          // 如果没有播放时间，也自动开始播放
-          setTimeout(() => {
-            if (audioRef.current) {
-              audioRef.current.play().then(() => {
-                setIsPlaying(true);
-                isPlayingRef.current = true;
-                startPlayTimeRecording();
-              }).catch((error) => {
-                console.error('自动播放失败:', error);
-              });
-            }
-          }, 1000);
+
+        // 等待音频加载完成后再设置时间和播放
+        const handleAudioReady = () => {
+          if (audioRef.current && selectedHistoryItem.play_time && selectedHistoryItem.play_time > 0) {
+            audioRef.current.currentTime = selectedHistoryItem.play_time;
+            setCurrentTime(selectedHistoryItem.play_time);
+
+            // 自动开始播放
+            audioRef.current.play().then(() => {
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+              startPlayTimeRecording();
+            }).catch((error) => {
+              console.error('自动播放失败:', error);
+            });
+          } else if (audioRef.current) {
+            // 如果没有播放时间，也自动开始播放
+            audioRef.current.play().then(() => {
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+              startPlayTimeRecording();
+            }).catch((error) => {
+              console.error('自动播放失败:', error);
+            });
+          }
+        };
+
+        // 监听音频加载完成事件
+        if (audioRef.current) {
+          const audio = audioRef.current;
+          audio.addEventListener('canplay', handleAudioReady, { once: true });
+
+          return () => {
+            audio.removeEventListener('canplay', handleAudioReady);
+          };
         }
       }
     }
@@ -99,7 +105,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   useEffect(() => {
     if (audioRef.current) {
       const audio = audioRef.current;
-      
+
       const updateTime = () => setCurrentTime(audio.currentTime);
       const updateDuration = () => setDuration(audio.duration);
       const handleEnded = () => {
@@ -222,7 +228,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     if (playTimeIntervalRef.current) {
       clearInterval(playTimeIntervalRef.current);
     }
-    
+
     playTimeIntervalRef.current = setInterval(() => {
       console.log('play interval:', isPlayingRef.current, audioRef?.current?.currentTime);
       if (isPlayingRef.current && audioRef.current) {
@@ -249,7 +255,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const handlePlay = async () => {
     const wasPlaying = isPlaying;
     await togglePlayPause();
-    
+
     // 等待状态更新
     setTimeout(() => {
       if (!wasPlaying) {
@@ -267,12 +273,12 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   // 进度条拖拽处理
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!audioRef.current || !duration || hasDragged) return;
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
-    
+
     setIsSeeking(true);
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -286,13 +292,13 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDragging || !duration) return;
-    
+
     setHasDragged(true);
     const rect = e.currentTarget.getBoundingClientRect();
     const moveX = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, moveX / rect.width));
     const newTime = percentage * duration;
-    
+
     setDragTime(newTime);
   };
 
@@ -320,7 +326,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     const touchX = touch.clientX - rect.left;
     const percentage = touchX / rect.width;
     const newTime = percentage * duration;
-    
+
     if (audioRef.current) {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
@@ -329,14 +335,14 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   const handleProgressTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isDragging || !duration) return;
-    
+
     setHasDragged(true);
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
     const touchX = touch.clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, touchX / rect.width));
     const newTime = percentage * duration;
-    
+
     setDragTime(newTime);
   };
 
@@ -362,8 +368,8 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
-          <h1 
-            className="text-xl font-bold text-gray-700 truncate max-w-xs" 
+          <h1
+            className="text-xl font-bold text-gray-700 truncate max-w-xs"
             title={album.name}
           >
             {album.name}
@@ -380,12 +386,11 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-auto">
           {/* 专辑信息 */}
           <div className="text-center mb-8">
-            <div className={`w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-300 ${
-              isPlaying ? 'animate-spin' : ''
-            }`} style={{
-              animationDuration: '10s',
-              animationPlayState: isPlaying ? 'running' : 'paused'
-            }}>
+            <div className={`w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-300 ${isPlaying ? 'animate-spin' : ''
+              }`} style={{
+                animationDuration: '10s',
+                animationPlayState: isPlaying ? 'running' : 'paused'
+              }}>
               <span className="text-4xl">🎵</span>
             </div>
             <h2 className="text-lg font-semibold text-gray-700 mb-1">
@@ -402,8 +407,8 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               <span>{formatTime(isDragging ? dragTime : currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
-            
-            <div 
+
+            <div
               className="w-full bg-gray-200 rounded-full h-2 cursor-pointer relative"
               onClick={handleProgressClick}
               onMouseDown={handleProgressMouseDown}
@@ -416,19 +421,18 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             >
               <div
                 className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                style={{ 
-                  width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%` 
+                style={{
+                  width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%`
                 }}
               ></div>
               {/* 拖拽指示器 - 合并loading效果 */}
               <div
-                className={`absolute top-1/2 transform -translate-y-1/2 w-4 h-4 rounded-full shadow-lg cursor-pointer transition-colors ${
-                  isSeeking 
-                    ? 'bg-indigo-600 animate-pulse' 
-                    : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-                style={{ 
-                  left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)` 
+                className={`absolute top-1/2 transform -translate-y-1/2 w-4 h-4 rounded-full shadow-lg cursor-pointer transition-colors ${isSeeking
+                  ? 'bg-indigo-600 animate-pulse'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                style={{
+                  left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)`
                 }}
               >
                 {/* 在seeking时显示旋转效果 */}
@@ -450,14 +454,14 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             >
               <SkipBack className="w-6 h-6 text-gray-700" />
             </button>
-            
+
             <button
               onClick={handlePlay}
               className="p-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
             </button>
-            
+
             <button
               onClick={playNext}
               disabled={currentIndex === audioFiles.length - 1}
@@ -504,11 +508,10 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
                   {audioFiles.map((file, index) => (
                     <div
                       key={file.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        index === currentIndex
-                          ? 'bg-indigo-100 text-indigo-700'
-                          : 'hover:bg-gray-50'
-                      }`}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${index === currentIndex
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'hover:bg-gray-50'
+                        }`}
                       onClick={() => selectTrack(index)}
                     >
                       <div className="flex items-center justify-between">

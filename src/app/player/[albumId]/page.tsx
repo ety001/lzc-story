@@ -109,7 +109,7 @@ export default function AlbumPlayerPage() {
 
       if (Array.isArray(history)) {
         const historyItem = history.find((item: any) =>
-          item.audio_file_id === audioFileId.toString() && item.album_id === parseInt(albumId)
+          item.audio_file_id === audioFileId && item.album_id === parseInt(albumId)
         );
 
         if (historyItem) {
