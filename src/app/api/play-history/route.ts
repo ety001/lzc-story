@@ -6,7 +6,7 @@ interface Album {
   name: string;
   path: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 interface AudioFile {
@@ -23,28 +23,42 @@ interface PlayHistory {
   audio_file_id: number;
   played_at: string;
   play_time?: number; // 播放时间（秒）
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface PlayHistoryItem {
+  id: number;
+  album_id: number;
+  album_name: string;
+  audio_file_id: number;
+  filename: string;
+  filepath: string;
+  played_at: string;
+  play_time: number;
 }
 
 // 获取播放历史（按专辑聚合，每个专辑显示最后两条）
 export async function GET() {
   try {
-    const playHistory = db.get('play_history') as PlayHistory[];
-    const albums = db.get('albums') as Album[];
-    const audioFiles = db.get('audio_files') as AudioFile[];
-    
+    const playHistory = db.get('play_history') as unknown as PlayHistory[];
+    const albums = db.get('albums') as unknown as Album[];
+    const audioFiles = db.get('audio_files') as unknown as AudioFile[];
+
     // 创建查找映射
     const albumMap = new Map(albums.map((album: Album) => [album.id, album]));
     const audioFileMap = new Map(audioFiles.map((file: AudioFile) => [file.id, file]));
-    
+
     // 处理播放历史数据
     const history = playHistory
       .map((record: PlayHistory) => {
         const album = albumMap.get(record.album_id);
         const audioFile = audioFileMap.get(record.audio_file_id);
-        
+
         if (!album || !audioFile) return null;
-        
+
         return {
+          id: record.id,
           album_id: album.id,
           album_name: album.name,
           audio_file_id: audioFile.id,
@@ -56,7 +70,7 @@ export async function GET() {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime());
-    
+
     // 按专辑分组，每个专辑最多显示2条
     const groupedHistory = history.reduce((acc, item) => {
       if (!acc[item.album_name]) {
@@ -66,11 +80,11 @@ export async function GET() {
         acc[item.album_name].push(item);
       }
       return acc;
-    }, {} as Record<string, any[]>);
-    
+    }, {} as Record<string, PlayHistoryItem[]>);
+
     // 展平结果
     const result = Object.values(groupedHistory).flat();
-    
+
     return NextResponse.json(result, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -88,13 +102,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { albumId, audioFileId, playTime } = await request.json();
-    
+
     if (!albumId || !audioFileId) {
       return NextResponse.json({ error: '专辑ID和音频文件ID不能为空' }, { status: 400 });
     }
 
     // 检查是否已存在相同的播放记录
-    const existingRecord = db.getOne('play_history', 'album_id = ? AND audio_file_id = ?', [albumId.toString(), audioFileId.toString()]) as PlayHistory | null;
+    const existingRecord = db.getOne('play_history', 'album_id = ? AND audio_file_id = ?', [albumId.toString(), audioFileId.toString()]) as unknown as PlayHistory | null;
 
     if (existingRecord) {
       // 更新现有记录

@@ -6,7 +6,7 @@ interface Album {
   name: string;
   path: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 interface AudioFile {
@@ -22,18 +22,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const albumId = searchParams.get('albumId');
-    
+
     if (!albumId) {
       return NextResponse.json({ error: '专辑ID不能为空' }, { status: 400 });
     }
 
     const albumIdNum = parseInt(albumId);
-    const audioFiles = db.get('audio_files', 'album_id = ?', [albumIdNum.toString()]) as AudioFile[];
-    const albums = db.get('albums') as Album[];
-    
+    const audioFiles = db.get('audio_files', 'album_id = ?', [albumIdNum.toString()]) as unknown as AudioFile[];
+    const albums = db.get('albums') as unknown as Album[];
+
     // 创建专辑名称映射
     const albumMap = new Map(albums.map((album: Album) => [album.id, album]));
-    
+
     // 添加专辑名称到音频文件
     const audioFilesWithAlbumName = audioFiles.map((file: AudioFile) => {
       const album = albumMap.get(file.album_id);
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         album_name: album ? album.name : '未知专辑'
       };
     }).sort((a, b) => a.filename.localeCompare(b.filename));
-    
+
     return NextResponse.json(audioFilesWithAlbumName, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',

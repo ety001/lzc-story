@@ -8,7 +8,7 @@ interface Album {
   name: string;
   path: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 interface AudioFile {
@@ -22,9 +22,9 @@ interface AudioFile {
 // 获取所有专辑
 export async function GET() {
   try {
-    const albums = db.get('albums') as Album[];
-    const audioFiles = db.get('audio_files') as AudioFile[];
-    
+    const albums = db.get('albums') as unknown as Album[];
+    const audioFiles = db.get('audio_files') as unknown as AudioFile[];
+
     // 计算每个专辑的音频文件数量
     const albumsWithCount = albums.map((album: Album) => {
       const audioCount = audioFiles.filter((file: AudioFile) => file.album_id === album.id).length;
@@ -33,7 +33,7 @@ export async function GET() {
         audio_count: audioCount
       };
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    
+
     return NextResponse.json(albumsWithCount, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -51,7 +51,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { name, albumPath } = await request.json();
-    
+
     if (!name || !albumPath) {
       return NextResponse.json({ error: '专辑名和路径不能为空' }, { status: 400 });
     }
@@ -71,12 +71,16 @@ export async function POST(request: NextRequest) {
     const newAlbum = db.insert('albums', { name, path: albumPath });
     const albumId = newAlbum.id;
 
+    if (!albumId) {
+      return NextResponse.json({ error: '创建专辑失败' }, { status: 500 });
+    }
+
     // 启动扫描任务（异步）
     scanAudioFiles(albumId, albumPath);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: '专辑创建成功，正在扫描音频文件...',
-      albumId 
+      albumId
     });
   } catch (error) {
     console.error('创建专辑失败:', error);
@@ -88,7 +92,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, name, albumPath } = await request.json();
-    
+
     if (!id || !name) {
       return NextResponse.json({ error: '专辑ID和名称不能为空' }, { status: 400 });
     }
@@ -105,7 +109,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 更新专辑信息
-    const updates: any = { name };
+    const updates: Record<string, unknown> = { name };
     if (albumPath) {
       updates.path = albumPath;
     }
@@ -113,9 +117,9 @@ export async function PUT(request: NextRequest) {
 
     // 如果路径改变，删除旧的音频文件记录并重新扫描
     if (albumPath && albumPath !== album.path) {
-      const audioFiles = db.get('audio_files', 'album_id = ?', [id.toString()]);
-      audioFiles.forEach((file: any) => {
-        db.delete('audio_files', file.id);
+      const audioFiles = db.get('audio_files', 'album_id = ?', [id.toString()]) as unknown as AudioFile[];
+      audioFiles.forEach((file: AudioFile) => {
+        db.delete('audio_files', file.id as number);
       });
       scanAudioFiles(id, albumPath);
     }
@@ -132,7 +136,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    
+
     if (!id) {
       return NextResponse.json({ error: '专辑ID不能为空' }, { status: 400 });
     }
@@ -146,14 +150,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 删除相关的音频文件
-    const audioFiles = db.get('audio_files', 'album_id = ?', [albumId.toString()]);
-    audioFiles.forEach((file: any) => {
-      db.delete('audio_files', file.id);
+    const audioFiles = db.get('audio_files', 'album_id = ?', [albumId.toString()]) as unknown as AudioFile[];
+    audioFiles.forEach((file: AudioFile) => {
+      db.delete('audio_files', file.id as number);
     });
 
     // 删除相关的播放历史
-    const playHistory = db.get('play_history', 'album_id = ?', [albumId.toString()]);
-    playHistory.forEach((record: any) => {
+    const playHistory = db.get('play_history', 'album_id = ?', [albumId.toString()]) as unknown as Array<{ id: number }>;
+    playHistory.forEach((record: { id: number }) => {
       db.delete('play_history', record.id);
     });
 
@@ -175,11 +179,11 @@ async function scanAudioFiles(albumId: number, albumPath: string) {
 
     function scanDirectory(dirPath: string) {
       const files = fs.readdirSync(dirPath);
-      
+
       for (const file of files) {
         const fullPath = path.join(dirPath, file);
         const stat = fs.statSync(fullPath);
-        
+
         if (stat.isDirectory()) {
           scanDirectory(fullPath);
         } else if (stat.isFile()) {

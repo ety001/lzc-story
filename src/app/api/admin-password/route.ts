@@ -6,6 +6,7 @@ interface AdminConfig {
   id: number;
   password_hash: string;
   created_at: string;
+  updated_at?: string;
 }
 
 // 检查管理员密码是否已设置

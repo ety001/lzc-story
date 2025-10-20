@@ -172,6 +172,16 @@ class DatabaseManager {
       return 0;
     }
   }
+
+  // 执行SQL查询（暴露给外部使用）
+  executeSQL<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
+    return executeSQL<T>(sql, params);
+  }
+
+  // 执行SQL语句（暴露给外部使用）
+  executeStatement(sql: string, params: unknown[] = []): { lastInsertRowid?: number; changes?: number } {
+    return executeStatement(sql, params);
+  }
 }
 
 // 程序启动时立即初始化数据库
