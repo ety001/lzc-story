@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/sqlite-database';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 interface AdminConfig {
   id: number;
   password_hash: string;
   created_at: string;
   updated_at?: string;
+}
+
+// 生成安全的会话 token
+function generateSecureToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// 计算会话过期时间
+function getSessionExpiry(): string {
+  const expiry = new Date();
+  expiry.setHours(expiry.getHours() + 24); // 24小时后过期
+  return expiry.toISOString();
 }
 
 // 检查管理员密码是否已设置
@@ -82,9 +95,22 @@ export async function PUT(request: NextRequest) {
     const isValid = await bcrypt.compare(password, config.password_hash);
 
     if (isValid) {
-      // 验证通过，设置会话 Cookie
+      // 验证通过，创建安全会话
+      const sessionToken = generateSecureToken();
+      const expiresAt = getSessionExpiry();
+
+      // 清理过期会话
+      db.cleanupExpiredSessions();
+
+      // 在数据库中创建会话记录
+      const sessionId = db.createSession(sessionToken, expiresAt);
+
+      if (!sessionId) {
+        return NextResponse.json({ error: '创建会话失败' }, { status: 500 });
+      }
+
+      // 设置会话 Cookie
       const response = NextResponse.json({ message: '密码验证成功' });
-      const sessionToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
       response.cookies.set('admin_session', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -99,5 +125,55 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('验证密码失败:', error);
     return NextResponse.json({ error: '验证密码失败' }, { status: 500 });
+  }
+}
+
+// 退出登录，清除会话
+export async function DELETE(request: NextRequest) {
+  try {
+    // 获取当前会话 token
+    const sessionToken = request.cookies.get('admin_session')?.value;
+
+    if (sessionToken) {
+      // 从数据库中删除会话记录
+      db.deleteSession(sessionToken);
+    }
+
+    const response = NextResponse.json({ message: '退出成功' });
+
+    // 清除会话 cookie
+    response.cookies.set('admin_session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      path: '/',
+    });
+
+    return response;
+  } catch (error) {
+    console.error('退出失败:', error);
+    return NextResponse.json({ error: '退出失败' }, { status: 500 });
+  }
+}
+
+// 验证会话有效性（用于 HEAD 请求）
+export async function HEAD(request: NextRequest) {
+  try {
+    const sessionToken = request.cookies.get('admin_session')?.value;
+
+    if (!sessionToken) {
+      return new NextResponse(null, { status: 401 });
+    }
+
+    // 验证会话是否有效
+    if (!db.validateSession(sessionToken)) {
+      return new NextResponse(null, { status: 401 });
+    }
+
+    return new NextResponse(null, { status: 200 });
+  } catch (error) {
+    console.error('验证会话失败:', error);
+    return new NextResponse(null, { status: 500 });
   }
 }

@@ -2,7 +2,18 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import fs from 'fs';
 
-const dbPath = path.join(process.cwd(), 'data', 'lzc-story.db');
+// 获取数据库路径，兼容不同运行时环境
+function getDbPath(): string {
+  try {
+    // 尝试使用 process.cwd()（Node.js 运行时）
+    return path.join(process.cwd(), 'data', 'lzc-story.db');
+  } catch {
+    // 如果失败，使用相对路径（Edge Runtime）
+    return path.join('./data', 'lzc-story.db');
+  }
+}
+
+const dbPath = getDbPath();
 
 // 确保数据目录存在
 const dataDir = path.dirname(dbPath);
@@ -49,6 +60,12 @@ function initializeDatabase() {
         updated_at TEXT,
         FOREIGN KEY (album_id) REFERENCES albums (id),
         FOREIGN KEY (audio_file_id) REFERENCES audio_files (id)
+      );
+      CREATE TABLE IF NOT EXISTS admin_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token TEXT NOT NULL UNIQUE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
       );
     `);
     console.log('SQLite数据库初始化完成');
@@ -181,6 +198,66 @@ class DatabaseManager {
   // 执行SQL语句（暴露给外部使用）
   executeStatement(sql: string, params: unknown[] = []): { lastInsertRowid?: number; changes?: number } {
     return executeStatement(sql, params);
+  }
+
+  // 会话管理方法
+  createSession(token: string, expiresAt: string): number | undefined {
+    try {
+      const result = this.executeStatement(
+        'INSERT INTO admin_sessions (token, expires_at, created_at) VALUES (?, ?, ?)',
+        [token, expiresAt, new Date().toISOString()]
+      );
+      return result.lastInsertRowid;
+    } catch (error) {
+      console.error('创建会话失败:', error);
+      return undefined;
+    }
+  }
+
+  validateSession(token: string): boolean {
+    try {
+      const sessions = this.executeSQL<{ expires_at: string }>(
+        'SELECT expires_at FROM admin_sessions WHERE token = ?',
+        [token]
+      );
+
+      if (sessions.length === 0) {
+        return false;
+      }
+
+      const expiresAt = new Date(sessions[0].expires_at);
+      const now = new Date();
+
+      if (expiresAt <= now) {
+        // 会话已过期，删除它
+        this.executeStatement('DELETE FROM admin_sessions WHERE token = ?', [token]);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('验证会话失败:', error);
+      return false;
+    }
+  }
+
+  deleteSession(token: string): boolean {
+    try {
+      const result = this.executeStatement('DELETE FROM admin_sessions WHERE token = ?', [token]);
+      return (result.changes ?? 0) > 0;
+    } catch (error) {
+      console.error('删除会话失败:', error);
+      return false;
+    }
+  }
+
+  cleanupExpiredSessions(): void {
+    try {
+      const now = new Date().toISOString();
+      this.executeStatement('DELETE FROM admin_sessions WHERE expires_at <= ?', [now]);
+    } catch (error) {
+      console.error('清理过期会话失败:', error);
+    }
   }
 }
 

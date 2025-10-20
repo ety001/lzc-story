@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Edit, Trash2, Folder, Music } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Folder, Music, LogOut } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 interface Album {
   id: number;
@@ -25,6 +26,7 @@ interface AdminInterfaceProps {
 }
 
 export default function AdminInterface({ onBack }: AdminInterfaceProps) {
+  const router = useRouter();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -168,6 +170,23 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/admin-password'), {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // 清除会话成功，重定向到首页
+        router.push('/');
+      } else {
+        setError('退出失败，请重试');
+      }
+    } catch {
+      setError('网络错误，请重试');
+    }
+  };
+
   const openFileBrowser = () => {
     setShowFileBrowser(true);
     loadFileSystem('/');
@@ -207,12 +226,22 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
           <h1 className="text-2xl font-bold text-gray-700">专辑管理</h1>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
-          >
-            <Plus className="w-4 h-4 mx-auto" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center"
+              title="退出登录"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              退出
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
+            >
+              <Plus className="w-4 h-4 mx-auto" />
+            </button>
+          </div>
         </div>
 
         {/* 消息提示 */}
