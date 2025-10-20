@@ -40,7 +40,7 @@ export default function AlbumPlayerPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const albumId = params.albumId as string;
-  
+
   const [album, setAlbum] = useState<Album | null>(null);
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ export default function AlbumPlayerPage() {
   useEffect(() => {
     if (albumId) {
       loadAlbumData();
-      
+
       // 检查是否有历史记录参数
       const historyItemId = searchParams.get('historyItem');
       if (historyItemId) {
@@ -65,10 +65,10 @@ export default function AlbumPlayerPage() {
       const albumResponse = await fetch(getApiUrl('/api/albums'));
       const albums = await albumResponse.json();
       console.log('Albums:', albums);
-      
-      const currentAlbum = albums.find((a: any) => a.id === albumId);
+
+      const currentAlbum = albums.find((a: any) => a.id === parseInt(albumId));
       console.log('Current album:', currentAlbum);
-      
+
       if (currentAlbum) {
         // 转换数据类型以匹配AudioPlayer组件的期望
         const convertedAlbum = {
@@ -77,11 +77,11 @@ export default function AlbumPlayerPage() {
           audio_count: parseInt(currentAlbum.audio_count.toString())
         };
         setAlbum(convertedAlbum);
-        
+
         // 加载音频文件
         const filesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
         const files = await filesResponse.json();
-        
+
         if (Array.isArray(files)) {
           // 转换音频文件数据类型
           const convertedFiles = files.map((file: any) => ({
@@ -106,12 +106,12 @@ export default function AlbumPlayerPage() {
     try {
       const response = await fetch(getApiUrl('/api/play-history'));
       const history = await response.json();
-      
+
       if (Array.isArray(history)) {
-        const historyItem = history.find((item: any) => 
-          item.audio_file_id === audioFileId.toString() && item.album_id === albumId
+        const historyItem = history.find((item: any) =>
+          item.audio_file_id === audioFileId.toString() && item.album_id === parseInt(albumId)
         );
-        
+
         if (historyItem) {
           // 转换历史记录数据类型
           const convertedHistoryItem = {
