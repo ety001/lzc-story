@@ -82,7 +82,17 @@ export async function PUT(request: NextRequest) {
     const isValid = await bcrypt.compare(password, config.password_hash);
 
     if (isValid) {
-      return NextResponse.json({ message: '密码验证成功' });
+      // 验证通过，设置会话 Cookie
+      const response = NextResponse.json({ message: '密码验证成功' });
+      const sessionToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      response.cookies.set('admin_session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24, // 24 小时
+        path: '/',
+      });
+      return response;
     } else {
       return NextResponse.json({ error: '密码错误' }, { status: 401 });
     }

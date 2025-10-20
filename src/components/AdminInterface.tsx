@@ -252,7 +252,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                       {album.name}
                     </h3>
                     <p
-                      className="text-sm text-gray-600 mb-1 truncate max-w-xs"
+                      className="text-sm text-gray-600 mb-1 max-w-xs"
                       title={album.path}
                     >
                       {album.path}

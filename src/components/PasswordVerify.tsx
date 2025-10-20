@@ -23,8 +23,8 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
     setLoading(true);
 
     try {
-      const response = await fetch(getApiUrl('/api/session'), {
-        method: 'POST',
+      const response = await fetch(getApiUrl('/api/admin-password'), {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },

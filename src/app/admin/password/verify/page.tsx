@@ -7,7 +7,7 @@ export default function PasswordVerifyPage() {
   const router = useRouter();
 
   const handlePasswordVerified = () => {
-    router.push('/admin');
+    router.replace('/admin');
   };
 
   const handleBack = () => {
@@ -15,7 +15,7 @@ export default function PasswordVerifyPage() {
   };
 
   return (
-    <PasswordVerify 
+    <PasswordVerify
       onPasswordVerified={handlePasswordVerified}
       onBack={handleBack}
     />
