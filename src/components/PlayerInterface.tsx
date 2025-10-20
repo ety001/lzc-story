@@ -66,7 +66,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
       const data = await response.json();
       // 确保data是数组
       setAlbums(Array.isArray(data) ? data : []);
-    } catch (error) {
+    } catch {
       setError('加载专辑列表失败');
       setAlbums([]);
     } finally {
@@ -80,7 +80,7 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
       const data = await response.json();
       // 确保data是数组
       setAudioFiles(Array.isArray(data) ? data : []);
-    } catch (error) {
+    } catch {
       setError('加载音频文件失败');
       setAudioFiles([]);
     }
@@ -156,8 +156,8 @@ export default function PlayerInterface({ onBack, selectedHistoryItem }: PlayerI
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-4">
-                    <h3 
-                      className="font-medium text-gray-700 mb-1 max-w-xs" 
+                    <h3
+                      className="font-medium text-gray-700 mb-1 max-w-xs"
                       title={album.name}
                     >
                       {album.name}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Edit, Trash2, Folder, Music, LogOut } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, Trash2, Folder, Music } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 
 interface Album {
@@ -47,22 +47,10 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
         setError('');
         setSuccess('');
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [error, success]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch(getApiUrl('/api/session'), {
-        method: 'DELETE',
-      });
-      // 登出成功后返回首页
-      window.location.href = '/';
-    } catch (error) {
-      console.error('登出失败:', error);
-    }
-  };
 
   const loadAlbums = async () => {
     try {
@@ -70,7 +58,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       const data = await response.json();
       // 确保data是数组
       setAlbums(Array.isArray(data) ? data : []);
-    } catch (error) {
+    } catch {
       setError('加载专辑列表失败');
       setAlbums([]);
     } finally {
@@ -84,7 +72,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       const data = await response.json();
       setFileSystemItems(data.items);
       setCurrentPath(data.currentPath);
-    } catch (error) {
+    } catch {
       setError('加载目录结构失败');
     }
   };
@@ -116,7 +104,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       } else {
         setError(data.error || '创建专辑失败');
       }
-    } catch (error) {
+    } catch {
       setError('网络错误，请重试');
     }
   };
@@ -152,7 +140,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       } else {
         setError(data.error || '更新专辑失败');
       }
-    } catch (error) {
+    } catch {
       setError('网络错误，请重试');
     }
   };
@@ -175,7 +163,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       } else {
         setError(data.error || '删除专辑失败');
       }
-    } catch (error) {
+    } catch {
       setError('网络错误，请重试');
     }
   };
@@ -219,22 +207,12 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             <ArrowLeft className="w-5 h-5 mr-2" />
           </button>
           <h1 className="text-2xl font-bold text-gray-700">专辑管理</h1>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleLogout}
-              className="flex items-center text-gray-600 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
-              title="登出"
-            >
-              <LogOut className="w-4 h-4 mr-1" />
-              登出
-            </button>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
-            >
-              <Plus className="w-4 h-4 mx-auto" />
-            </button>
-          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
+          >
+            <Plus className="w-4 h-4 mx-auto" />
+          </button>
         </div>
 
         {/* 消息提示 */}
@@ -267,14 +245,14 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 pr-4">
-                    <h3 
-                      className="font-medium text-gray-700 mb-1 max-w-xs" 
+                    <h3
+                      className="font-medium text-gray-700 mb-1 max-w-xs"
                       title={album.name}
                     >
                       {album.name}
                     </h3>
-                    <p 
-                      className="text-sm text-gray-600 mb-1 truncate max-w-xs" 
+                    <p
+                      className="text-sm text-gray-600 mb-1 truncate max-w-xs"
                       title={album.path}
                     >
                       {album.path}

@@ -51,7 +51,7 @@ function initializeDatabase() {
           FOREIGN KEY (audio_file_id) REFERENCES audio_files (id)
         );
       `;
-      
+
       execSync(`sqlite3 "${dbPath}" "${createTablesSQL}"`, { stdio: 'pipe' });
       console.log('SQLite数据库初始化完成');
     }
@@ -65,40 +65,40 @@ function executeSQL(sql: string, params: string[] = []): any[] {
   try {
     // 转义参数中的单引号
     const escapedParams = params.map(p => p.replace(/'/g, "''"));
-    
+
     // 替换SQL中的占位符
     let finalSQL = sql;
-    escapedParams.forEach((param, index) => {
+    escapedParams.forEach((param) => {
       finalSQL = finalSQL.replace('?', `'${param}'`);
     });
-    
-    const result = execSync(`sqlite3 "${dbPath}" "${finalSQL}"`, { 
+
+    const result = execSync(`sqlite3 "${dbPath}" "${finalSQL}"`, {
       encoding: 'utf8',
       stdio: 'pipe'
     });
-    
+
     if (!result.trim()) {
       return [];
     }
-    
+
     // 解析结果
     const lines = result.trim().split('\n');
     if (lines.length === 1 && !lines[0].includes('|')) {
       // 单值结果
       return [{ value: lines[0] }];
     }
-    
+
     // 多行结果，需要获取列名
-    const headerResult = execSync(`sqlite3 "${dbPath}" ".headers on" "${finalSQL}"`, { 
+    const headerResult = execSync(`sqlite3 "${dbPath}" ".headers on" "${finalSQL}"`, {
       encoding: 'utf8',
       stdio: 'pipe'
     });
-    
+
     const headerLines = headerResult.trim().split('\n');
     if (headerLines.length < 2) {
       return [];
     }
-    
+
     const headers = headerLines[0].split('|');
     const rows = headerLines.slice(1).map(line => {
       const values = line.split('|');
@@ -108,7 +108,7 @@ function executeSQL(sql: string, params: string[] = []): any[] {
       });
       return row;
     });
-    
+
     return rows;
   } catch (error) {
     console.error('执行SQL查询失败:', error);
@@ -121,34 +121,34 @@ function executeStatement(sql: string, params: string[] = []): { lastInsertRowid
   try {
     const escapedParams = params.map(p => p.replace(/'/g, "''"));
     let finalSQL = sql;
-    escapedParams.forEach((param, index) => {
+    escapedParams.forEach((param) => {
       finalSQL = finalSQL.replace('?', `'${param}'`);
     });
-    
+
     // 使用临时文件来避免命令行参数长度限制
     const tempFile = path.join(process.cwd(), 'temp_sql.sql');
-    
+
     // 写入SQL到临时文件
     fs.writeFileSync(tempFile, finalSQL);
-    
+
     // 执行SQL
     execSync(`sqlite3 "${dbPath}" < "${tempFile}"`, { stdio: 'pipe' });
-    
+
     // 删除临时文件
     fs.unlinkSync(tempFile);
-    
+
     // 然后获取last_insert_rowid
-    const idResult = execSync(`sqlite3 "${dbPath}" "SELECT last_insert_rowid();"`, { 
+    const idResult = execSync(`sqlite3 "${dbPath}" "SELECT last_insert_rowid();"`, {
       encoding: 'utf8',
       stdio: 'pipe'
     });
-    
+
     // 获取changes
-    const changesResult = execSync(`sqlite3 "${dbPath}" "SELECT changes();"`, { 
+    const changesResult = execSync(`sqlite3 "${dbPath}" "SELECT changes();"`, {
       encoding: 'utf8',
       stdio: 'pipe'
     });
-    
+
     return {
       lastInsertRowid: parseInt(idResult.trim()) || undefined,
       changes: parseInt(changesResult.trim()) || 0
@@ -168,7 +168,7 @@ class DatabaseManager {
       if (condition) {
         sql += ` WHERE ${condition}`;
       }
-      
+
       return executeSQL(sql, params || []);
     } catch (error) {
       console.error(`获取${table}数据失败:`, error);
@@ -194,20 +194,20 @@ class DatabaseManager {
       const fields = Object.keys(record);
       const placeholders = fields.map(() => '?').join(', ');
       const values = fields.map(field => record[field]?.toString() || '');
-      
+
       const sql = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`;
       const result = executeStatement(sql, values);
-      
+
       // 如果lastInsertRowid没有获取到，尝试查询最大ID
       let id = result.lastInsertRowid;
       if (!id) {
-        const maxIdResult = execSync(`sqlite3 "${dbPath}" "SELECT MAX(id) FROM ${table};"`, { 
+        const maxIdResult = execSync(`sqlite3 "${dbPath}" "SELECT MAX(id) FROM ${table};"`, {
           encoding: 'utf8',
           stdio: 'pipe'
         });
         id = parseInt(maxIdResult.trim()) || undefined;
       }
-      
+
       return {
         id: id,
         ...record,
@@ -225,10 +225,10 @@ class DatabaseManager {
       const fields = Object.keys(updates);
       const setClause = fields.map(field => `${field} = ?`).join(', ');
       const values = fields.map(field => updates[field]?.toString() || '');
-      
+
       const sql = `UPDATE ${table} SET ${setClause}, updated_at = ? WHERE id = ?`;
       const result = executeStatement(sql, [...values, new Date().toISOString(), id.toString()]);
-      
+
       return result.changes ? result.changes > 0 : false;
     } catch (error) {
       console.error(`更新${table}数据失败:`, error);
@@ -241,7 +241,7 @@ class DatabaseManager {
     try {
       const sql = `DELETE FROM ${table} WHERE id = ?`;
       const result = executeStatement(sql, [id.toString()]);
-      
+
       return result.changes ? result.changes > 0 : false;
     } catch (error) {
       console.error(`删除${table}数据失败:`, error);
@@ -254,7 +254,7 @@ class DatabaseManager {
     try {
       const sql = `DELETE FROM ${table} WHERE ${condition}`;
       const result = executeStatement(sql, params || []);
-      
+
       return result.changes;
     } catch (error) {
       console.error(`批量删除${table}数据失败:`, error);

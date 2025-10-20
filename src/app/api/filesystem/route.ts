@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const dirPath = searchParams.get('path') || '/';
-    
+
     // 安全检查：确保路径在允许的范围内
     if (!dirPath.startsWith('/')) {
       return NextResponse.json({ error: '无效的路径' }, { status: 400 });
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       .map(item => {
         const fullPath = path.join(dirPath, item);
         const itemStat = fs.statSync(fullPath);
-        
+
         return {
           name: item,
           path: fullPath,
@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
+    console.error('获取目录结构失败:', error);
     return NextResponse.json({ error: '获取目录结构失败' }, { status: 500 });
   }
 }

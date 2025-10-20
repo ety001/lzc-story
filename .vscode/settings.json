@@ -8,13 +8,10 @@
   ],
   "eslint.workingDirectories": ["."],
   "eslint.useFlatConfig": true,
+  "eslint.configFile": "${workspaceFolder}/eslint.config.mjs",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  "eslint.options.overrideConfigFile": "./eslint.config.mjs",
-  "eslint.nodePath": "./node_modules/.bin",
-  "eslint.format.enable": true,
-  "eslint.lintTask.enable": true,
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "vscode.typescript-language-features"
 }

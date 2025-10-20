@@ -12,7 +12,7 @@ interface AdminConfig {
 export async function GET() {
   try {
     const config = db.getOne('admin_config', '1=1') as AdminConfig | null;
-    return NextResponse.json({ 
+    return NextResponse.json({
       hasPassword: !!config && config.password_hash && config.password_hash.trim() !== '',
       password_hash: config?.password_hash || '',
       message: config && config.password_hash && config.password_hash.trim() !== '' ? '密码已设置' : '密码未设置'
@@ -24,6 +24,7 @@ export async function GET() {
       }
     });
   } catch (error) {
+    console.error('检查密码状态失败:', error);
     return NextResponse.json({ error: '检查密码状态失败' }, { status: 500 });
   }
 }
@@ -32,7 +33,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
-    
+
     if (!password) {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
     }
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: '密码设置成功' });
   } catch (error) {
+    console.error('设置密码失败:', error);
     return NextResponse.json({ error: '设置密码失败' }, { status: 500 });
   }
 }
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { password } = await request.json();
-    
+
     if (!password) {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
     }
@@ -77,13 +79,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const isValid = await bcrypt.compare(password, config.password_hash);
-    
+
     if (isValid) {
       return NextResponse.json({ message: '密码验证成功' });
     } else {
       return NextResponse.json({ error: '密码错误' }, { status: 401 });
     }
   } catch (error) {
+    console.error('验证密码失败:', error);
     return NextResponse.json({ error: '验证密码失败' }, { status: 500 });
   }
 }

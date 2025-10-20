@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 import LazyCatIcon from './LazyCatIcon';
@@ -38,7 +38,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
       } else {
         setError(data.error || '密码验证失败');
       }
-    } catch (error) {
+    } catch {
       setError('网络错误，请重试');
     } finally {
       setLoading(false);

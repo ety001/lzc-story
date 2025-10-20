@@ -28,7 +28,7 @@ export default function Home() {
     try {
       const response = await fetch(getApiUrl('/api/play-history'));
       const data = await response.json();
-      
+
       if (Array.isArray(data)) {
         setPlayHistory(data);
       } else {
@@ -68,7 +68,7 @@ export default function Home() {
             <Clock className="w-5 h-5 mr-2 text-indigo-600" />
             播放历史
           </h2>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
@@ -95,9 +95,9 @@ export default function Home() {
                       {albumName}
                     </h3>
                   </div>
-                  
+
                   <div className="divide-y">
-                    {group.map((item, index) => (
+                    {group.map((item) => (
                       <div
                         key={`${item.audio_file_id}-${item.played_at}`}
                         onClick={() => handleHistoryItemClick(item)}
@@ -109,7 +109,7 @@ export default function Home() {
                             <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
                               <PlayCircle className="w-5 h-5 text-indigo-600" />
                             </div>
-                            
+
                             {/* 文件信息 */}
                             <div className="flex-1 min-w-0 overflow-hidden">
                               <div className="flex items-center justify-between">
@@ -117,7 +117,7 @@ export default function Home() {
                                   {item.filename}
                                 </span>
                               </div>
-                              
+
                               {/* 播放进度和时间 */}
                               <div className="flex items-center justify-between mt-1">
                                 {item.play_time !== undefined && item.play_time > 0 ? (
@@ -133,14 +133,14 @@ export default function Home() {
                                     <span className="text-sm text-gray-500 truncate">刚开始播放</span>
                                   </div>
                                 )}
-                                
+
                                 <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
                                   {new Date(item.played_at).toLocaleTimeString()}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* 悬停时的播放按钮 */}
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0 ml-2">
                             <Play className="w-5 h-5 text-indigo-600" />
@@ -164,7 +164,7 @@ export default function Home() {
             <Settings className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
             <p className="font-medium text-gray-700">管理专辑</p>
           </Link>
-          
+
           <Link
             href="/player"
             className="bg-white rounded-lg shadow-sm p-6 text-center hover:shadow-md transition-shadow"
