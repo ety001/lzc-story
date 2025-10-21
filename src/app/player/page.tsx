@@ -1,7 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import PlayerInterface from '@/components/PlayerInterface';
+import AlbumSelector from '@/components/AlbumSelector';
+
+interface Album {
+  id: number;
+  name: string;
+  path: string;
+  audio_count: number;
+  created_at: string;
+}
 
 export default function PlayerPage() {
   const router = useRouter();
@@ -10,9 +18,15 @@ export default function PlayerPage() {
     router.push('/');
   };
 
+  const handleSelectAlbum = (album: Album) => {
+    // 导航到独立的播放器页面
+    router.push(`/player/${album.id}`);
+  };
+
   return (
-    <PlayerInterface 
+    <AlbumSelector
       onBack={handleBack}
+      onSelectAlbum={handleSelectAlbum}
     />
   );
 }
