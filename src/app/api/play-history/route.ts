@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/sqlite-database';
 
-interface Album {
-  id: number;
-  name: string;
-  path: string;
-  created_at: string;
-  updated_at?: string;
-}
-
-interface AudioFile {
-  id: number;
-  album_id: number;
-  filename: string;
-  filepath: string;
-  created_at: string;
-}
-
 interface PlayHistory {
   id: number;
   album_id: number;
@@ -38,52 +22,46 @@ interface PlayHistoryItem {
   play_time: number;
 }
 
-// 获取播放历史（按专辑聚合，每个专辑显示最后两条）
+// 获取播放历史（按专辑聚合，每个专辑显示最新三条）
 export async function GET() {
   try {
-    const playHistory = db.get('play_history') as unknown as PlayHistory[];
-    const albums = db.get('albums') as unknown as Album[];
-    const audioFiles = db.get('audio_files') as unknown as AudioFile[];
+    // 使用 SQL 查询直接获取按专辑分组的最新三条记录
+    const sql = `
+      WITH ranked_history AS (
+        SELECT 
+          ph.id,
+          ph.album_id,
+          ph.audio_file_id,
+          ph.played_at,
+          ph.play_time,
+          a.name as album_name,
+          af.filename,
+          af.filepath,
+          ROW_NUMBER() OVER (
+            PARTITION BY ph.album_id 
+            ORDER BY ph.played_at DESC
+          ) as rn
+        FROM play_history ph
+        JOIN albums a ON ph.album_id = a.id
+        JOIN audio_files af ON ph.audio_file_id = af.id
+      )
+      SELECT 
+        id,
+        album_id,
+        album_name,
+        audio_file_id,
+        filename,
+        filepath,
+        played_at,
+        play_time
+      FROM ranked_history
+      WHERE rn <= 3
+      ORDER BY 
+        (SELECT MAX(played_at) FROM play_history ph2 WHERE ph2.album_id = ranked_history.album_id) DESC,
+        played_at DESC
+    `;
 
-    // 创建查找映射
-    const albumMap = new Map(albums.map((album: Album) => [album.id, album]));
-    const audioFileMap = new Map(audioFiles.map((file: AudioFile) => [file.id, file]));
-
-    // 处理播放历史数据
-    const history = playHistory
-      .map((record: PlayHistory) => {
-        const album = albumMap.get(record.album_id);
-        const audioFile = audioFileMap.get(record.audio_file_id);
-
-        if (!album || !audioFile) return null;
-
-        return {
-          id: record.id,
-          album_id: album.id,
-          album_name: album.name,
-          audio_file_id: audioFile.id,
-          filename: audioFile.filename,
-          filepath: audioFile.filepath,
-          played_at: record.played_at,
-          play_time: record.play_time || 0
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null)
-      .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime());
-
-    // 按专辑分组，每个专辑最多显示2条
-    const groupedHistory = history.reduce((acc, item) => {
-      if (!acc[item.album_name]) {
-        acc[item.album_name] = [];
-      }
-      if (acc[item.album_name].length < 2) {
-        acc[item.album_name].push(item);
-      }
-      return acc;
-    }, {} as Record<string, PlayHistoryItem[]>);
-
-    // 展平结果
-    const result = Object.values(groupedHistory).flat();
+    const result = db.executeSQL(sql) as unknown as PlayHistoryItem[];
 
     return NextResponse.json(result, {
       headers: {

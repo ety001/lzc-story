@@ -22,6 +22,25 @@ export default function Home() {
 
   useEffect(() => {
     loadPlayHistory();
+
+    // 当页面获得焦点或变为可见时，重新加载播放历史
+    const handleFocus = () => {
+      loadPlayHistory();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadPlayHistory();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadPlayHistory = async () => {

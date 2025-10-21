@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 
@@ -48,6 +48,31 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const isPlayingRef = useRef(false);
 
   const currentFile = audioFiles[currentIndex];
+
+  // 添加播放历史记录
+  const addToPlayHistory = useCallback(async (playTime?: number) => {
+    if (currentFile) {
+      const timeToRecord = playTime || currentTime;
+      // 只有当播放时间大于0时才记录
+      if (timeToRecord > 0) {
+        try {
+          await fetch(getApiUrl('/api/play-history'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              albumId: album.id,
+              audioFileId: currentFile.id,
+              playTime: timeToRecord,
+            }),
+          });
+        } catch (error) {
+          console.error('添加播放记录失败:', error);
+        }
+      }
+    }
+  }, [currentFile, currentTime, album.id]);
 
   // 禁用浏览器后退功能和清理定时器
   useEffect(() => {
@@ -110,8 +135,12 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       const updateDuration = () => setDuration(audio.duration);
       const handleEnded = () => {
         if (currentIndex < audioFiles.length - 1) {
+          // 记录当前歌曲的播放时间（歌曲播放完毕）
+          addToPlayHistory(audioRef.current?.currentTime || 0);
           setCurrentIndex(currentIndex + 1);
         } else {
+          // 记录最后一首歌曲的播放时间
+          addToPlayHistory(audioRef.current?.currentTime || 0);
           setIsPlaying(false);
           isPlayingRef.current = false;
         }
@@ -133,7 +162,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('seeked', handleSeeked);
       };
     }
-  }, [currentIndex, audioFiles.length]);
+  }, [currentIndex, audioFiles.length, addToPlayHistory]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -183,44 +212,27 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   const playPrevious = () => {
     if (currentIndex > 0) {
+      // 记录当前歌曲的播放时间
+      addToPlayHistory(audioRef.current?.currentTime || 0);
       setCurrentIndex(currentIndex - 1);
     }
   };
 
   const playNext = () => {
     if (currentIndex < audioFiles.length - 1) {
+      // 记录当前歌曲的播放时间
+      addToPlayHistory(audioRef.current?.currentTime || 0);
       setCurrentIndex(currentIndex + 1);
     }
   };
 
   const selectTrack = (index: number) => {
+    // 记录当前歌曲的播放时间
+    addToPlayHistory(audioRef.current?.currentTime || 0);
     setCurrentIndex(index);
     setShowPlaylist(false);
   };
 
-  const addToPlayHistory = async (playTime?: number) => {
-    if (currentFile) {
-      const timeToRecord = playTime || currentTime;
-      // 只有当播放时间大于0时才记录
-      if (timeToRecord > 0) {
-        try {
-          await fetch(getApiUrl('/api/play-history'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              albumId: album.id,
-              audioFileId: currentFile.id,
-              playTime: timeToRecord,
-            }),
-          });
-        } catch (error) {
-          console.error('添加播放记录失败:', error);
-        }
-      }
-    }
-  };
 
   // 开始定时记录播放时间
   const startPlayTimeRecording = () => {
