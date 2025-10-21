@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import AudioPlayer from '@/components/AudioPlayer';
 import { getApiUrl } from '@/lib/api';
@@ -46,53 +46,41 @@ export default function AlbumPlayerPage() {
   const [loading, setLoading] = useState(true);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PlayHistoryItem | null>(null);
 
-  useEffect(() => {
-    if (albumId) {
-      loadAlbumData();
-
-      // 检查是否有历史记录参数
-      const historyItemId = searchParams.get('historyItem');
-      if (historyItemId) {
-        loadHistoryItem(parseInt(historyItemId));
-      }
-    }
-  }, [albumId, searchParams]);
-
-  const loadAlbumData = async () => {
+  const loadAlbumData = useCallback(async () => {
     console.log('loadAlbumData called');
     try {
-      // 加载专辑信息
-      const albumResponse = await fetch(getApiUrl('/api/albums'));
-      const albums = await albumResponse.json();
-      console.log('Albums:', albums);
+      // 直接查询特定专辑信息
+      const albumResponse = await fetch(getApiUrl(`/api/albums/${albumId}`));
 
-      const currentAlbum = albums.find((a: any) => a.id === parseInt(albumId));
+      if (!albumResponse.ok) {
+        throw new Error('专辑不存在');
+      }
+
+      const currentAlbum = await albumResponse.json();
       console.log('Current album:', currentAlbum);
 
-      if (currentAlbum) {
-        // 转换数据类型以匹配AudioPlayer组件的期望
-        const convertedAlbum = {
-          ...currentAlbum,
-          id: parseInt(currentAlbum.id),
-          audio_count: parseInt(currentAlbum.audio_count.toString())
-        };
-        setAlbum(convertedAlbum);
+      // 转换数据类型以匹配AudioPlayer组件的期望
+      const convertedAlbum = {
+        ...currentAlbum,
+        id: parseInt(currentAlbum.id),
+        audio_count: parseInt(currentAlbum.audio_count.toString())
+      };
+      setAlbum(convertedAlbum);
 
-        // 加载音频文件
-        const filesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
-        const files = await filesResponse.json();
+      // 加载音频文件
+      const filesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
+      const files = await filesResponse.json();
 
-        if (Array.isArray(files)) {
-          // 转换音频文件数据类型
-          const convertedFiles = files.map((file: any) => ({
-            ...file,
-            id: parseInt(file.id),
-            album_id: parseInt(file.album_id)
-          }));
-          setAudioFiles(convertedFiles);
-        } else {
-          setAudioFiles([]);
-        }
+      if (Array.isArray(files)) {
+        // 转换音频文件数据类型
+        const convertedFiles = files.map((file: any) => ({
+          ...file,
+          id: parseInt(file.id),
+          album_id: parseInt(file.album_id)
+        }));
+        setAudioFiles(convertedFiles);
+      } else {
+        setAudioFiles([]);
       }
     } catch (error) {
       console.error('加载专辑数据失败:', error);
@@ -100,9 +88,9 @@ export default function AlbumPlayerPage() {
       console.log('Setting loading to false');
       setLoading(false);
     }
-  };
+  }, [albumId]);
 
-  const loadHistoryItem = async (audioFileId: number) => {
+  const loadHistoryItem = useCallback(async (audioFileId: number) => {
     try {
       const response = await fetch(getApiUrl('/api/play-history'));
       const history = await response.json();
@@ -125,7 +113,19 @@ export default function AlbumPlayerPage() {
     } catch (error) {
       console.error('加载历史记录失败:', error);
     }
-  };
+  }, [albumId]);
+
+  useEffect(() => {
+    if (albumId) {
+      loadAlbumData();
+
+      // 检查是否有历史记录参数
+      const historyItemId = searchParams.get('historyItem');
+      if (historyItemId) {
+        loadHistoryItem(parseInt(historyItemId));
+      }
+    }
+  }, [albumId, searchParams, loadAlbumData, loadHistoryItem]);
 
   const handleBack = () => {
     router.push('/player');
