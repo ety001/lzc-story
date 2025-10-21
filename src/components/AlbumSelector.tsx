@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Play, Music } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 
@@ -26,7 +26,7 @@ export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorPr
         loadAlbums();
     }, []);
 
-    const loadAlbums = async () => {
+    const loadAlbums = useCallback(async () => {
         try {
             const response = await fetch(getApiUrl('/api/albums'));
             const data = await response.json();
@@ -38,7 +38,7 @@ export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorPr
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     if (loading) {
         return (
