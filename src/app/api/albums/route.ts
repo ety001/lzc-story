@@ -67,6 +67,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '专辑名已存在' }, { status: 400 });
     }
 
+    // 检查专辑数量上限
+    const maxAlbums = parseInt(process.env.MAX_ALBUMS || '10');
+    const currentAlbums = db.get('albums') as unknown as Album[];
+    if (currentAlbums.length >= maxAlbums) {
+      return NextResponse.json({
+        error: `专辑数量已达到上限（${maxAlbums}个），请先删除一些专辑再创建新专辑`
+      }, { status: 400 });
+    }
+
     // 插入专辑
     const newAlbum = db.insert('albums', { name, path: albumPath });
     const albumId = newAlbum.id;
