@@ -53,8 +53,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
           onClick={onBack}
           className="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          返回首页
+          <ArrowLeft className="w-5 h-5 mx-auto" />
         </button>
         <div className="text-center mb-8">
           <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">

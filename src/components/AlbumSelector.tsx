@@ -60,7 +60,7 @@ export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorPr
                         onClick={onBack}
                         className="flex items-center text-gray-600 hover:text-gray-900"
                     >
-                        <ArrowLeft className="w-5 h-5 mr-2" />
+                        <ArrowLeft className="w-5 h-5 mx-auto" />
                     </button>
                     <h1 className="text-2xl font-bold text-gray-700 truncate max-w-xs" title="选择专辑">选择专辑</h1>
                     <div className="w-5"></div>
