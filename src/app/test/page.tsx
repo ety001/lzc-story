@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Album, AudioFile, PlayHistoryItem, AdminConfig, DatabaseTestResult } from '@/types';
+import type { Album, PlayHistoryItem, DatabaseTestResult } from '@/types';
 
 export default function DatabaseTest() {
     const [result, setResult] = useState<DatabaseTestResult | null>(null);

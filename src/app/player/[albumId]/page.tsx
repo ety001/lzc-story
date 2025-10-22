@@ -9,7 +9,6 @@ import type {
   AudioFile,
   PlayHistoryItem,
   AudioFileResponse,
-  PlayHistoryResponse
 } from '@/types';
 
 export default function AlbumPlayerPage() {
@@ -117,7 +116,7 @@ export default function AlbumPlayerPage() {
 
   useEffect(() => {
     loadAlbumData();
-  }, []);
+  }, [loadAlbumData]);
 
   useEffect(() => {
     // 检查是否有历史记录参数

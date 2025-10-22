@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
-import type { Album, AudioFile, AudioPlayerProps } from '@/types';
+import type { AudioPlayerProps } from '@/types';
 
 export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = false, selectedHistoryItem }: AudioPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
