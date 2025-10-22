@@ -4,54 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import AudioPlayer from '@/components/AudioPlayer';
 import { getApiUrl } from '@/lib/api';
-
-interface Album {
-  id: number;
-  name: string;
-  path: string;
-  audio_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AudioFile {
-  id: number;
-  album_id: number;
-  filename: string;
-  filepath: string;
-  duration: number;
-  album_name: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PlayHistoryItem {
-  album_id: number;
-  album_name: string;
-  audio_file_id: number;
-  filename: string;
-  filepath: string;
-  played_at: string;
-  play_time?: number;
-}
-
-interface AudioFileResponse {
-  id: string | number;
-  album_id: string | number;
-  filename: string;
-  filepath: string;
-  file_size: number;
-  duration: number | null;
-  created_at: string | null;
-}
-
-interface PlayHistoryResponse {
-  id: number;
-  album_id: number;
-  audio_file_id: number;
-  play_time: number;
-  played_at: string;
-}
+import type {
+  Album,
+  AudioFile,
+  PlayHistoryItem,
+  AudioFileResponse,
+  PlayHistoryResponse
+} from '@/types';
 
 export default function AlbumPlayerPage() {
   const router = useRouter();

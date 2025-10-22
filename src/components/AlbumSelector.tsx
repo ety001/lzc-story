@@ -3,19 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Play, Music } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
-
-interface Album {
-    id: number;
-    name: string;
-    path: string;
-    audio_count: number;
-    created_at: string;
-}
-
-interface AlbumSelectorProps {
-    onBack: () => void;
-    onSelectAlbum: (album: Album) => void;
-}
+import type { Album, AlbumSelectorProps } from '@/types';
 
 export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorProps) {
     const [albums, setAlbums] = useState<Album[]>([]);

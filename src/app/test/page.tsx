@@ -1,53 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-interface Album {
-    id: number;
-    name: string;
-    path: string;
-    created_at: string | null;
-}
-
-interface AudioFile {
-    id: number;
-    album_id: number;
-    filename: string;
-    filepath: string;
-    file_size: number;
-    duration: number | null;
-    created_at: string | null;
-}
-
-interface PlayHistoryItem {
-    id: number;
-    album_id: number;
-    audio_file_id: number;
-    play_time: number;
-    played_at: string;
-}
-
-interface AdminConfig {
-    id: number;
-    key: string;
-    value: string;
-    created_at: string;
-}
-
-interface DatabaseTestResult {
-    success: boolean;
-    message: string;
-    timestamp: string;
-    database: {
-        path: string;
-        tables: string[];
-        stats: Record<string, number | string>;
-        sampleAlbums?: Album[];
-        sampleAudioFiles?: AudioFile[];
-        samplePlayHistory?: PlayHistoryItem[];
-        adminConfig?: AdminConfig[];
-    };
-}
+import type { Album, AudioFile, PlayHistoryItem, AdminConfig, DatabaseTestResult } from '@/types';
 
 export default function DatabaseTest() {
     const [result, setResult] = useState<DatabaseTestResult | null>(null);
@@ -154,11 +108,11 @@ export default function DatabaseTest() {
                     <div className="bg-white rounded-lg shadow p-6">
                         <h2 className="text-lg font-semibold mb-4">📋 表统计</h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                            {result.database.tables.map(table => (
+                            {result.database.tables?.map(table => (
                                 <div key={table} className="text-center p-3 bg-gray-50 rounded">
                                     <p className="font-semibold text-sm">{table}</p>
                                     <p className="text-lg font-bold text-indigo-600">
-                                        {typeof result.database.stats[table] === 'number'
+                                        {typeof result.database.stats?.[table] === 'number'
                                             ? result.database.stats[table]
                                             : 'N/A'
                                         }
@@ -194,14 +148,14 @@ export default function DatabaseTest() {
                         <div className="bg-white rounded-lg shadow p-6">
                             <h2 className="text-lg font-semibold mb-4">📚 播放历史示例</h2>
                             <div className="space-y-2">
-                                {result.database.samplePlayHistory.map((item: PlayHistoryItem) => (
-                                    <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                {result.database.samplePlayHistory.map((item: PlayHistoryItem, index: number) => (
+                                    <div key={item.id || index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                         <div>
                                             <span className="font-semibold">文件ID: {item.audio_file_id}</span>
                                             <span className="text-gray-500 ml-2">专辑ID: {item.album_id}</span>
                                         </div>
                                         <div className="text-sm text-gray-600">
-                                            播放时间: {Math.floor(item.play_time / 60)}:{(item.play_time % 60).toFixed(0).padStart(2, '0')}
+                                            播放时间: {item.play_time ? `${Math.floor(item.play_time / 60)}:${(item.play_time % 60).toFixed(0).padStart(2, '0')}` : 'N/A'}
                                         </div>
                                     </div>
                                 ))}
