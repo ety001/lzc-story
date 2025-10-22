@@ -113,7 +113,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         setCurrentIndex(targetIndex);
       }
     }
-  }, [selectedHistoryItem, audioFiles.length]);
+  }, [selectedHistoryItem, audioFiles, currentIndex]);
 
   // 处理播放历史的时间设置和自动播放
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('canplay', handleAudioReady);
       };
     }
-  }, [selectedHistoryItem, audioFiles.length, currentIndex, startPlayTimeRecording]);
+  }, [selectedHistoryItem, audioFiles, currentIndex, startPlayTimeRecording]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -205,7 +205,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('seeked', handleSeeked);
       };
     }
-  }, [currentIndex, audioFiles.length, addToPlayHistory]);
+  }, [currentIndex, audioFiles, addToPlayHistory]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -214,6 +214,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   }, [volume]);
 
   // 设置音频源
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     console.log('Audio source useEffect triggered, currentIndex:', currentIndex, 'currentFile:', currentFile?.filename);
     if (audioRef.current && currentFile) {
@@ -260,7 +261,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         // 重置切歌前的播放状态
         wasPlayingBeforeSwitchRef.current = false;
       };
-      const handleError = (e: any) => console.error('音频加载错误:', e);
+      const handleError = (e: Event) => console.error('音频加载错误:', e);
 
       audio.addEventListener('loadstart', handleLoadStart);
       audio.addEventListener('canplay', handleCanPlay);
@@ -299,7 +300,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('canplay', handleCanPlay);
       };
     }
-  }, [autoPlay, startPlayTimeRecording]);
+  }, [autoPlay, startPlayTimeRecording, currentFile, currentIndex]);
 
   const togglePlayPause = async () => {
     console.log('togglePlayPause called, isPlaying:', isPlaying, 'isPlayingRef:', isPlayingRef.current);
@@ -316,10 +317,10 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           console.log('Play successful');
           setIsPlaying(true);
           isPlayingRef.current = true;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('播放失败:', error);
           // 忽略 AbortError，这是正常的
-          if (error.name !== 'AbortError') {
+          if (error instanceof Error && error.name !== 'AbortError') {
             console.error('播放失败:', error);
           }
         }
