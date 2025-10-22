@@ -20,10 +20,11 @@ interface AudioFile {
 // 获取单个专辑
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const albumId = parseInt(params.id);
+        const { id } = await params;
+        const albumId = parseInt(id);
 
         if (isNaN(albumId)) {
             return NextResponse.json({ error: '无效的专辑ID' }, { status: 400 });
