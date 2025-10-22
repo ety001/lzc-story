@@ -74,36 +74,61 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, [currentFile, currentTime, album.id]);
 
+  // 开始定时记录播放时间
+  const startPlayTimeRecording = useCallback(() => {
+    console.log('start play time recording:', isPlayingRef.current, audioRef?.current?.currentTime);
+    if (playTimeIntervalRef.current) {
+      clearInterval(playTimeIntervalRef.current);
+    }
+
+    playTimeIntervalRef.current = setInterval(() => {
+      console.log('play interval:', isPlayingRef.current, audioRef?.current?.currentTime);
+      if (isPlayingRef.current && audioRef.current) {
+        addToPlayHistory(audioRef.current.currentTime);
+        console.log('记录播放时间:', audioRef.current.currentTime);
+      }
+    }, 5000); // 每5秒记录一次
+  }, [addToPlayHistory]);
+
+  // 停止定时记录播放时间
+  const stopPlayTimeRecording = useCallback(() => {
+    if (playTimeIntervalRef.current) {
+      clearInterval(playTimeIntervalRef.current);
+      playTimeIntervalRef.current = null;
+    }
+  }, []);
+
   // 禁用浏览器后退功能和清理定时器
   useEffect(() => {
     return () => {
       stopPlayTimeRecording();
     };
-  }, []);
+  }, [stopPlayTimeRecording]);
 
   // 处理从播放历史记录进入的情况
   useEffect(() => {
     if (selectedHistoryItem && audioFiles.length > 0) {
       const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
-      if (targetIndex !== -1) {
+      if (targetIndex !== -1 && targetIndex !== currentIndex) {
         setCurrentIndex(targetIndex);
+      }
+    }
+  }, [selectedHistoryItem, audioFiles, currentIndex]);
 
+  // 处理播放历史的时间设置和自动播放
+  useEffect(() => {
+    if (selectedHistoryItem && audioFiles.length > 0 && currentFile) {
+      const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
+      if (targetIndex === currentIndex) {
         // 等待音频加载完成后再设置时间和播放
         const handleAudioReady = () => {
           if (audioRef.current && selectedHistoryItem.play_time && selectedHistoryItem.play_time > 0) {
             audioRef.current.currentTime = selectedHistoryItem.play_time;
             setCurrentTime(selectedHistoryItem.play_time);
+          }
 
-            // 自动开始播放
-            audioRef.current.play().then(() => {
-              setIsPlaying(true);
-              isPlayingRef.current = true;
-              startPlayTimeRecording();
-            }).catch((error) => {
-              console.error('自动播放失败:', error);
-            });
-          } else if (audioRef.current) {
-            // 如果没有播放时间，也自动开始播放
+          // 自动开始播放
+          if (audioRef.current) {
             audioRef.current.play().then(() => {
               setIsPlaying(true);
               isPlayingRef.current = true;
@@ -125,7 +150,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         }
       }
     }
-  }, [selectedHistoryItem, audioFiles]);
+  }, [selectedHistoryItem, currentFile, currentIndex, startPlayTimeRecording]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -170,27 +195,64 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, [volume]);
 
+  // 设置音频源
   useEffect(() => {
     if (audioRef.current && currentFile) {
-      audioRef.current.src = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
-      if (isPlaying) {
-        audioRef.current.play();
-      } else if (autoPlay) {
-        // 延迟1秒后自动播放
-        setTimeout(() => {
-          if (audioRef.current) {
-            audioRef.current.play().then(() => {
-              setIsPlaying(true);
-              isPlayingRef.current = true;
-              startPlayTimeRecording();
-            }).catch((error) => {
-              console.error('自动播放失败:', error);
-            });
-          }
-        }, 1000);
+      const audioUrl = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
+      console.log('设置音频源:', audioUrl);
+
+      // 先暂停当前播放，避免 AbortError
+      if (audioRef.current.paused === false) {
+        audioRef.current.pause();
       }
+
+      audioRef.current.src = audioUrl;
+
+      // 添加加载事件监听
+      const audio = audioRef.current;
+      const handleLoadStart = () => console.log('音频开始加载');
+      const handleCanPlay = () => console.log('音频可以播放');
+      const handleError = (e: any) => console.error('音频加载错误:', e);
+
+      audio.addEventListener('loadstart', handleLoadStart);
+      audio.addEventListener('canplay', handleCanPlay);
+      audio.addEventListener('error', handleError);
+
+      return () => {
+        audio.removeEventListener('loadstart', handleLoadStart);
+        audio.removeEventListener('canplay', handleCanPlay);
+        audio.removeEventListener('error', handleError);
+      };
     }
-  }, [currentIndex, currentFile, autoPlay]);
+  }, [currentIndex, currentFile]);
+
+  // 处理自动播放
+  useEffect(() => {
+    if (audioRef.current && currentFile && autoPlay) {
+      const audio = audioRef.current;
+      const handleCanPlay = () => {
+        console.log('音频可以播放，开始自动播放');
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            startPlayTimeRecording();
+          }).catch((error) => {
+            // 忽略 AbortError，这是正常的
+            if (error.name !== 'AbortError') {
+              console.error('自动播放失败:', error);
+            }
+          });
+        }
+      };
+
+      audio.addEventListener('canplay', handleCanPlay, { once: true });
+      return () => {
+        audio.removeEventListener('canplay', handleCanPlay);
+      };
+    }
+  }, [currentIndex, currentFile, autoPlay, startPlayTimeRecording]);
 
   const togglePlayPause = async () => {
     if (audioRef.current) {
@@ -203,8 +265,11 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           await audioRef.current.play();
           setIsPlaying(true);
           isPlayingRef.current = true;
-        } catch (error) {
-          console.error('播放失败:', error);
+        } catch (error: any) {
+          // 忽略 AbortError，这是正常的
+          if (error.name !== 'AbortError') {
+            console.error('播放失败:', error);
+          }
         }
       }
     }
@@ -231,31 +296,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     addToPlayHistory(audioRef.current?.currentTime || 0);
     setCurrentIndex(index);
     setShowPlaylist(false);
-  };
-
-
-  // 开始定时记录播放时间
-  const startPlayTimeRecording = () => {
-    console.log('start play time recording:', isPlayingRef.current, audioRef?.current?.currentTime);
-    if (playTimeIntervalRef.current) {
-      clearInterval(playTimeIntervalRef.current);
-    }
-
-    playTimeIntervalRef.current = setInterval(() => {
-      console.log('play interval:', isPlayingRef.current, audioRef?.current?.currentTime);
-      if (isPlayingRef.current && audioRef.current) {
-        addToPlayHistory(audioRef.current.currentTime);
-        console.log('记录播放时间:', audioRef.current.currentTime);
-      }
-    }, 5000); // 每5秒记录一次
-  };
-
-  // 停止定时记录播放时间
-  const stopPlayTimeRecording = () => {
-    if (playTimeIntervalRef.current) {
-      clearInterval(playTimeIntervalRef.current);
-      playTimeIntervalRef.current = null;
-    }
   };
 
   const formatTime = (time: number) => {

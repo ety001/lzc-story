@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const filePath = searchParams.get('path');
-    
+
     if (!filePath) {
       return NextResponse.json({ error: '文件路径不能为空' }, { status: 400 });
     }
@@ -24,14 +24,11 @@ export async function GET(request: NextRequest) {
     // 获取文件扩展名
     const ext = path.extname(filePath).toLowerCase();
     const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
-    
+
     if (!audioExtensions.includes(ext)) {
       return NextResponse.json({ error: '不支持的文件格式' }, { status: 400 });
     }
 
-    // 读取文件
-    const fileBuffer = fs.readFileSync(filePath);
-    
     // 设置适当的Content-Type
     let contentType = 'audio/mpeg';
     switch (ext) {
@@ -54,14 +51,42 @@ export async function GET(request: NextRequest) {
         contentType = 'audio/mpeg';
     }
 
-    return new NextResponse(fileBuffer, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': fileBuffer.length.toString(),
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=3600',
-      },
-    });
+    const fileSize = stat.size;
+    const range = request.headers.get('range');
+
+    if (range) {
+      // 处理 Range 请求
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = (end - start) + 1;
+
+      // 创建文件流
+      const stream = fs.createReadStream(filePath, { start, end });
+
+      return new NextResponse(stream as any, {
+        status: 206,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': chunkSize.toString(),
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    } else {
+      // 处理完整文件请求
+      const fileBuffer = fs.readFileSync(filePath);
+
+      return new NextResponse(fileBuffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': fileBuffer.length.toString(),
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
   } catch (error) {
     console.error('音频流服务错误:', error);
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
