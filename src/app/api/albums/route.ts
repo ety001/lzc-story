@@ -189,7 +189,28 @@ async function scanAudioFiles(albumId: number, albumPath: string) {
     function scanDirectory(dirPath: string) {
       const files = fs.readdirSync(dirPath);
 
-      for (const file of files) {
+      // 对文件名进行数字排序
+      const sortedFiles = files.sort((a, b) => {
+        // 提取文件名中的数字部分进行排序
+        const matchA = a.match(/\d+/);
+        const matchB = b.match(/\d+/);
+        const numA = parseInt(matchA ? matchA[0] : '0');
+        const numB = parseInt(matchB ? matchB[0] : '0');
+
+        // 如果都有数字，按数字排序
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+        }
+
+        // 如果只有一个有数字，有数字的排在前面
+        if (!isNaN(numA) && isNaN(numB)) return -1;
+        if (isNaN(numA) && !isNaN(numB)) return 1;
+
+        // 如果都没有数字，按字母顺序排序
+        return a.localeCompare(b);
+      });
+
+      for (const file of sortedFiles) {
         const fullPath = path.join(dirPath, file);
         const stat = fs.statSync(fullPath);
 
