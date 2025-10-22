@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       // 创建文件流
       const stream = fs.createReadStream(filePath, { start, end });
 
-      return new NextResponse(stream as any, {
+      return new NextResponse(stream as unknown as ReadableStream, {
         status: 206,
         headers: {
           'Content-Type': contentType,

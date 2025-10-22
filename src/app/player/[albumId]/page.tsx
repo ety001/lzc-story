@@ -35,6 +35,24 @@ interface PlayHistoryItem {
   play_time?: number;
 }
 
+interface AudioFileResponse {
+  id: string | number;
+  album_id: string | number;
+  filename: string;
+  filepath: string;
+  file_size: number;
+  duration: number | null;
+  created_at: string | null;
+}
+
+interface PlayHistoryResponse {
+  id: number;
+  album_id: number;
+  audio_file_id: number;
+  play_time: number;
+  played_at: string;
+}
+
 export default function AlbumPlayerPage() {
   const router = useRouter();
   const params = useParams();
@@ -73,10 +91,15 @@ export default function AlbumPlayerPage() {
 
       if (Array.isArray(files)) {
         // 转换音频文件数据类型
-        const convertedFiles = files.map((file: any) => ({
-          ...file,
-          id: parseInt(file.id),
-          album_id: parseInt(file.album_id)
+        const convertedFiles = files.map((file: AudioFileResponse) => ({
+          id: parseInt(String(file.id)),
+          album_id: parseInt(String(file.album_id)),
+          filename: file.filename,
+          filepath: file.filepath,
+          duration: file.duration || 0,
+          album_name: album?.name || '',
+          created_at: file.created_at || '',
+          updated_at: file.created_at || ''
         }));
         setAudioFiles(convertedFiles);
       } else {
@@ -88,7 +111,7 @@ export default function AlbumPlayerPage() {
       console.log('Setting loading to false');
       setLoading(false);
     }
-  }, [albumId]);
+  }, [albumId, album?.name]);
 
   const loadHistoryItem = useCallback(async (audioFileId: number) => {
     try {
@@ -96,7 +119,7 @@ export default function AlbumPlayerPage() {
       const history = await response.json();
 
       if (Array.isArray(history)) {
-        const historyItem = history.find((item: any) =>
+        const historyItem = history.find((item: PlayHistoryResponse) =>
           item.audio_file_id === audioFileId && item.album_id === parseInt(albumId)
         );
 
