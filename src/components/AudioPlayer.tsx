@@ -214,7 +214,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   }, [volume]);
 
   // 设置音频源
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     console.log('Audio source useEffect triggered, currentIndex:', currentIndex, 'currentFile:', currentFile?.filename);
     if (audioRef.current && currentFile) {

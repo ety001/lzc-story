@@ -22,10 +22,6 @@ export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorPr
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        loadAlbums();
-    }, []);
-
     const loadAlbums = useCallback(async () => {
         try {
             const response = await fetch(getApiUrl('/api/albums'));
@@ -39,6 +35,10 @@ export default function AlbumSelector({ onBack, onSelectAlbum }: AlbumSelectorPr
             setLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        loadAlbums();
+    }, [loadAlbums]);
 
     if (loading) {
         return (
