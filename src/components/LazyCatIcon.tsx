@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 interface LazyCatIconProps {
   className?: string;
   size?: number;
@@ -18,12 +20,13 @@ export default function LazyCatIcon({ className = "w-16 h-16", size = 48 }: Lazy
   };
 
   return (
-    <img
+    <Image
       src={getLogoSrc(size)}
       alt="懒猫故事机"
       width={size}
       height={size}
       className={className}
+      priority
     />
   );
 }
