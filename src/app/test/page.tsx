@@ -2,6 +2,38 @@
 
 import { useState, useEffect } from 'react';
 
+interface Album {
+    id: number;
+    name: string;
+    path: string;
+    created_at: string | null;
+}
+
+interface AudioFile {
+    id: number;
+    album_id: number;
+    filename: string;
+    filepath: string;
+    file_size: number;
+    duration: number | null;
+    created_at: string | null;
+}
+
+interface PlayHistoryItem {
+    id: number;
+    album_id: number;
+    audio_file_id: number;
+    play_time: number;
+    played_at: string;
+}
+
+interface AdminConfig {
+    id: number;
+    key: string;
+    value: string;
+    created_at: string;
+}
+
 interface DatabaseTestResult {
     success: boolean;
     message: string;
@@ -10,10 +42,10 @@ interface DatabaseTestResult {
         path: string;
         tables: string[];
         stats: Record<string, number | string>;
-        sampleAlbums?: any[];
-        sampleAudioFiles?: any[];
-        samplePlayHistory?: any[];
-        adminConfig?: any[];
+        sampleAlbums?: Album[];
+        sampleAudioFiles?: AudioFile[];
+        samplePlayHistory?: PlayHistoryItem[];
+        adminConfig?: AdminConfig[];
     };
 }
 
@@ -22,7 +54,7 @@ export default function DatabaseTest() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [customQuery, setCustomQuery] = useState('');
-    const [customResult, setCustomResult] = useState<any>(null);
+    const [customResult, setCustomResult] = useState<unknown>(null);
 
     const fetchDatabaseInfo = async () => {
         setLoading(true);
@@ -142,7 +174,7 @@ export default function DatabaseTest() {
                         <div className="bg-white rounded-lg shadow p-6">
                             <h2 className="text-lg font-semibold mb-4">🎵 专辑数据示例</h2>
                             <div className="space-y-2">
-                                {result.database.sampleAlbums.map((album: any) => (
+                                {result.database.sampleAlbums.map((album: Album) => (
                                     <div key={album.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                         <div>
                                             <span className="font-semibold">{album.name}</span>
@@ -162,7 +194,7 @@ export default function DatabaseTest() {
                         <div className="bg-white rounded-lg shadow p-6">
                             <h2 className="text-lg font-semibold mb-4">📚 播放历史示例</h2>
                             <div className="space-y-2">
-                                {result.database.samplePlayHistory.map((item: any) => (
+                                {result.database.samplePlayHistory.map((item: PlayHistoryItem) => (
                                     <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded">
                                         <div>
                                             <span className="font-semibold">文件ID: {item.audio_file_id}</span>
@@ -201,11 +233,11 @@ export default function DatabaseTest() {
                                 {loading ? '执行中...' : '执行查询'}
                             </button>
 
-                            {customResult && (
+                            {customResult !== null && (
                                 <div className="mt-4">
                                     <h3 className="font-semibold mb-2">查询结果:</h3>
                                     <pre className="bg-gray-100 p-4 rounded-md overflow-auto text-sm">
-                                        {JSON.stringify(customResult, null, 2)}
+                                        {JSON.stringify(customResult as Record<string, unknown>, null, 2)}
                                     </pre>
                                 </div>
                             )}
