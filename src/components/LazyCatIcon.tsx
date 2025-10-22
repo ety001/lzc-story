@@ -6,49 +6,24 @@ interface LazyCatIconProps {
 }
 
 export default function LazyCatIcon({ className = "w-16 h-16", size = 48 }: LazyCatIconProps) {
+  // 根据尺寸选择合适的PNG文件
+  const getLogoSrc = (size: number) => {
+    if (size <= 16) return '/lzc-story-logo-16.png';
+    if (size <= 32) return '/lzc-story-logo-32.png';
+    if (size <= 48) return '/lzc-story-logo-48.png';
+    if (size <= 64) return '/lzc-story-logo-64.png';
+    if (size <= 128) return '/lzc-story-logo-128.png';
+    if (size <= 256) return '/lzc-story-logo-256.png';
+    return '/lzc-story-logo.png';
+  };
+
   return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 32 32" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
+    <img
+      src={getLogoSrc(size)}
+      alt="懒猫故事机"
+      width={size}
+      height={size}
       className={className}
-    >
-      {/* 懒猫头部 */}
-      <circle cx="16" cy="14" r="10" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
-      
-      {/* 懒猫耳朵 */}
-      <path d="M9 9 Q8 6 10 5 Q12 4 14 6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
-      <path d="M23 9 Q24 6 22 5 Q20 4 18 6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
-      
-      {/* 内耳 */}
-      <path d="M10 8 Q9 7 10 6 Q11 7 10 8" fill="#4F46E5"/>
-      <path d="M22 8 Q23 7 22 6 Q21 7 22 8" fill="#4F46E5"/>
-      
-      {/* 懒猫眼睛 */}
-      <ellipse cx="13" cy="12" rx="1.5" ry="2" fill="#2D3748"/>
-      <ellipse cx="19" cy="12" rx="1.5" ry="2" fill="#2D3748"/>
-      
-      {/* 眼睛高光 */}
-      <ellipse cx="13.5" cy="11" rx="0.5" ry="0.8" fill="#FFFFFF"/>
-      <ellipse cx="19.5" cy="11" rx="0.5" ry="0.8" fill="#FFFFFF"/>
-      
-      {/* 懒猫鼻子 */}
-      <path d="M16 15 Q15 14 16 14 Q17 14 16 15" fill="#4F46E5"/>
-      
-      {/* 懒猫嘴巴 */}
-      <path d="M16 16 Q14 17 12 16" stroke="#2D3748" strokeWidth="0.8" fill="none"/>
-      <path d="M16 16 Q18 17 20 16" stroke="#2D3748" strokeWidth="0.8" fill="none"/>
-      
-      {/* 懒猫身体 */}
-      <ellipse cx="16" cy="25" r="9" ry="6" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
-      
-      {/* 懒猫尾巴 */}
-      <path d="M25 25 Q29 23 30 20 Q29 17 25 20" fill="#E0E7FF" stroke="#4F46E5" strokeWidth="1"/>
-      
-      {/* 懒猫肚子 */}
-      <ellipse cx="16" cy="26" r="6" ry="4" fill="#FFFFFF" opacity="0.8"/>
-    </svg>
+    />
   );
 }

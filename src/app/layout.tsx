@@ -16,9 +16,9 @@ export const metadata: Metadata = {
   title: "懒猫故事机",
   description: "简洁的音频播放器",
   icons: {
-    icon: '/lazy-cat-favicon-16.svg',
-    shortcut: '/lazy-cat-favicon-16.svg',
-    apple: '/lazy-cat-favicon-16.svg',
+    icon: '/lazy-cat-favicon.png',
+    shortcut: '/lazy-cat-favicon.png',
+    apple: '/lazy-cat-favicon.png',
   },
 };
 
