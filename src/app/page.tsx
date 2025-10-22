@@ -23,6 +23,11 @@ export default function Home() {
   useEffect(() => {
     loadPlayHistory();
 
+    // 定期刷新播放历史（每30秒）
+    const interval = setInterval(() => {
+      loadPlayHistory();
+    }, 30000);
+
     // 当页面获得焦点或变为可见时，重新加载播放历史
     const handleFocus = () => {
       loadPlayHistory();
@@ -38,6 +43,7 @@ export default function Home() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };

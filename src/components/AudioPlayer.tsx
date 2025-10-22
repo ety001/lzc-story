@@ -53,6 +53,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const addToPlayHistory = useCallback(async (playTime?: number) => {
     if (currentFile) {
       const timeToRecord = playTime || currentTime;
+
       // 只有当播放时间大于0时才记录
       if (timeToRecord > 0) {
         try {
@@ -76,16 +77,13 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   // 开始定时记录播放时间
   const startPlayTimeRecording = useCallback(() => {
-    console.log('start play time recording:', isPlayingRef.current, audioRef?.current?.currentTime);
     if (playTimeIntervalRef.current) {
       clearInterval(playTimeIntervalRef.current);
     }
 
     playTimeIntervalRef.current = setInterval(() => {
-      console.log('play interval:', isPlayingRef.current, audioRef?.current?.currentTime);
       if (isPlayingRef.current && audioRef.current) {
         addToPlayHistory(audioRef.current.currentTime);
-        console.log('记录播放时间:', audioRef.current.currentTime);
       }
     }, 5000); // 每5秒记录一次
   }, [addToPlayHistory]);
@@ -199,19 +197,38 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   useEffect(() => {
     if (audioRef.current && currentFile) {
       const audioUrl = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
-      console.log('设置音频源:', audioUrl);
 
       // 先暂停当前播放，避免 AbortError
-      if (audioRef.current.paused === false) {
-        audioRef.current.pause();
-      }
+      audioRef.current.pause();
+
+      // 重置播放状态
+      setIsPlaying(false);
+      isPlayingRef.current = false;
 
       audioRef.current.src = audioUrl;
 
       // 添加加载事件监听
       const audio = audioRef.current;
-      const handleLoadStart = () => console.log('音频开始加载');
-      const handleCanPlay = () => console.log('音频可以播放');
+      const handleLoadStart = () => { };
+      const handleCanPlay = () => {
+        // 切歌后自动开始播放
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            // 延迟启动播放时间记录，避免在 useEffect 中调用
+            setTimeout(() => {
+              startPlayTimeRecording();
+            }, 100);
+          }).catch((error) => {
+            // 忽略 AbortError，这是正常的
+            if (error.name !== 'AbortError') {
+              console.error('自动播放失败:', error);
+            }
+          });
+        }
+      };
       const handleError = (e: any) => console.error('音频加载错误:', e);
 
       audio.addEventListener('loadstart', handleLoadStart);
@@ -226,12 +243,11 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, [currentIndex, currentFile]);
 
-  // 处理自动播放
+  // 处理初始自动播放（只在首次加载时）
   useEffect(() => {
-    if (audioRef.current && currentFile && autoPlay) {
+    if (audioRef.current && currentFile && autoPlay && currentIndex === 0) {
       const audio = audioRef.current;
       const handleCanPlay = () => {
-        console.log('音频可以播放，开始自动播放');
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
@@ -241,7 +257,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           }).catch((error) => {
             // 忽略 AbortError，这是正常的
             if (error.name !== 'AbortError') {
-              console.error('自动播放失败:', error);
+              console.error('初始自动播放失败:', error);
             }
           });
         }
@@ -252,7 +268,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('canplay', handleCanPlay);
       };
     }
-  }, [currentIndex, currentFile, autoPlay, startPlayTimeRecording]);
+  }, [autoPlay, startPlayTimeRecording]);
 
   const togglePlayPause = async () => {
     if (audioRef.current) {
@@ -279,7 +295,8 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     if (currentIndex > 0) {
       // 记录当前歌曲的播放时间
       addToPlayHistory(audioRef.current?.currentTime || 0);
-      setCurrentIndex(currentIndex - 1);
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(newIndex);
     }
   };
 
@@ -287,7 +304,8 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     if (currentIndex < audioFiles.length - 1) {
       // 记录当前歌曲的播放时间
       addToPlayHistory(audioRef.current?.currentTime || 0);
-      setCurrentIndex(currentIndex + 1);
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
     }
   };
 
