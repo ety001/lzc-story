@@ -23,9 +23,44 @@ interface PlayHistoryItem {
 }
 
 // 获取播放历史（按专辑聚合，每个专辑显示最新三条）
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // 使用 SQL 查询直接获取按专辑分组的最新三条记录
+    const { searchParams } = new URL(request.url);
+    const audioFileId = searchParams.get('audioFileId');
+    const albumId = searchParams.get('albumId');
+
+    // 如果指定了audioFileId和albumId，直接查询特定记录
+    if (audioFileId && albumId) {
+      const sql = `
+        SELECT 
+          ph.id,
+          ph.album_id,
+          ph.audio_file_id,
+          ph.played_at,
+          ph.play_time,
+          a.name as album_name,
+          af.filename,
+          af.filepath
+        FROM play_history ph
+        JOIN albums a ON ph.album_id = a.id
+        JOIN audio_files af ON ph.audio_file_id = af.id
+        WHERE ph.audio_file_id = ? AND ph.album_id = ?
+        ORDER BY ph.played_at DESC
+        LIMIT 1
+      `;
+
+      const result = db.executeSQL(sql, [audioFileId, albumId]) as unknown as PlayHistoryItem[];
+
+      return NextResponse.json(result.length > 0 ? result[0] : null, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
+
+    // 默认行为：获取按专辑分组的最新三条记录
     const sql = `
       WITH ranked_history AS (
         SELECT 

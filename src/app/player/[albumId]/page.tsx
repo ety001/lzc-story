@@ -64,10 +64,8 @@ export default function AlbumPlayerPage() {
   const [loading, setLoading] = useState(true);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PlayHistoryItem | null>(null);
 
-  const loadAlbumData = useCallback(async () => {
-    console.log('loadAlbumData called');
+  const loadAlbumInfo = useCallback(async () => {
     try {
-      // 直接查询特定专辑信息
       const albumResponse = await fetch(getApiUrl(`/api/albums/${albumId}`));
 
       if (!albumResponse.ok) {
@@ -84,8 +82,16 @@ export default function AlbumPlayerPage() {
         audio_count: parseInt(currentAlbum.audio_count.toString())
       };
       setAlbum(convertedAlbum);
+      return convertedAlbum;
+    } catch (error) {
+      console.error('加载专辑信息失败:', error);
+      setAlbum(null);
+      throw error;
+    }
+  }, [albumId]);
 
-      // 加载音频文件
+  const loadAudioFiles = useCallback(async (albumName: string) => {
+    try {
       const filesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
       const files = await filesResponse.json();
 
@@ -97,7 +103,7 @@ export default function AlbumPlayerPage() {
           filename: file.filename,
           filepath: file.filepath,
           duration: file.duration || 0,
-          album_name: album?.name || '',
+          album_name: albumName,
           created_at: file.created_at || '',
           updated_at: file.created_at || ''
         }));
@@ -106,49 +112,61 @@ export default function AlbumPlayerPage() {
         setAudioFiles([]);
       }
     } catch (error) {
+      console.error('加载音频文件失败:', error);
+      setAudioFiles([]);
+      throw error;
+    }
+  }, [albumId]);
+
+  const loadAlbumData = useCallback(async () => {
+    console.log('loadAlbumData called');
+    try {
+      // 先加载专辑信息
+      const albumInfo = await loadAlbumInfo();
+
+      // 然后加载音频文件
+      await loadAudioFiles(albumInfo.name);
+    } catch (error) {
       console.error('加载专辑数据失败:', error);
     } finally {
       console.log('Setting loading to false');
       setLoading(false);
     }
-  }, [albumId, album?.name]);
+  }, [loadAlbumInfo, loadAudioFiles]);
 
   const loadHistoryItem = useCallback(async (audioFileId: number) => {
     try {
-      const response = await fetch(getApiUrl('/api/play-history'));
-      const history = await response.json();
+      const response = await fetch(getApiUrl(`/api/play-history?audioFileId=${audioFileId}&albumId=${albumId}`));
+      const historyItem = await response.json();
 
-      if (Array.isArray(history)) {
-        const historyItem = history.find((item: PlayHistoryResponse) =>
-          item.audio_file_id === audioFileId && item.album_id === parseInt(albumId)
-        );
-
-        if (historyItem) {
-          // 转换历史记录数据类型
-          const convertedHistoryItem = {
-            ...historyItem,
-            audio_file_id: parseInt(historyItem.audio_file_id),
-            album_id: parseInt(historyItem.album_id)
-          };
-          setSelectedHistoryItem(convertedHistoryItem);
-        }
+      if (historyItem) {
+        // 转换历史记录数据类型
+        const convertedHistoryItem = {
+          ...historyItem,
+          audio_file_id: parseInt(historyItem.audio_file_id),
+          album_id: parseInt(historyItem.album_id)
+        };
+        setSelectedHistoryItem(convertedHistoryItem);
+      } else {
+        setSelectedHistoryItem(null);
       }
     } catch (error) {
       console.error('加载历史记录失败:', error);
+      setSelectedHistoryItem(null);
     }
   }, [albumId]);
 
   useEffect(() => {
-    if (albumId) {
-      loadAlbumData();
+    loadAlbumData();
+  }, []);
 
-      // 检查是否有历史记录参数
-      const historyItemId = searchParams.get('historyItem');
-      if (historyItemId) {
-        loadHistoryItem(parseInt(historyItemId));
-      }
+  useEffect(() => {
+    // 检查是否有历史记录参数
+    const historyItemId = searchParams.get('historyItem');
+    if (historyItemId && albumId) {
+      loadHistoryItem(parseInt(historyItemId));
     }
-  }, [albumId, searchParams, loadAlbumData, loadHistoryItem]);
+  }, [searchParams, albumId, loadHistoryItem]); // 只在搜索参数变化时执行
 
   const handleBack = () => {
     router.push('/player');
