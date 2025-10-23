@@ -26,6 +26,43 @@ const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// 数据库迁移函数
+function migrateDatabase() {
+  try {
+    // 检查并添加 albums 表的缺失列
+    const albumsColumns = db.pragma('table_info(albums)') as Array<{ name: string }>;
+    const columnNames = albumsColumns.map(col => col.name);
+
+    if (!columnNames.includes('audio_count')) {
+      db.exec('ALTER TABLE albums ADD COLUMN audio_count INTEGER DEFAULT 0');
+    }
+
+    if (!columnNames.includes('updated_at')) {
+      db.exec('ALTER TABLE albums ADD COLUMN updated_at TEXT');
+    }
+
+    // 检查并添加 audio_files 表的缺失列
+    const audioFilesColumns = db.pragma('table_info(audio_files)') as Array<{ name: string }>;
+    const audioFileColumnNames = audioFilesColumns.map(col => col.name);
+
+    if (!audioFileColumnNames.includes('file_size')) {
+      db.exec('ALTER TABLE audio_files ADD COLUMN file_size INTEGER DEFAULT 0');
+    }
+
+    if (!audioFileColumnNames.includes('duration')) {
+      db.exec('ALTER TABLE audio_files ADD COLUMN duration REAL DEFAULT 0');
+    }
+
+    if (!audioFileColumnNames.includes('updated_at')) {
+      db.exec('ALTER TABLE audio_files ADD COLUMN updated_at TEXT');
+    }
+
+    console.log('数据库迁移完成');
+  } catch (error) {
+    console.error('数据库迁移失败:', error);
+  }
+}
+
 // 初始化数据库
 function initializeDatabase() {
   try {
@@ -40,14 +77,19 @@ function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         path TEXT NOT NULL,
-        created_at TEXT
+        audio_count INTEGER DEFAULT 0,
+        created_at TEXT,
+        updated_at TEXT
       );
       CREATE TABLE IF NOT EXISTS audio_files (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         album_id INTEGER NOT NULL,
         filename TEXT NOT NULL,
         filepath TEXT NOT NULL,
+        file_size INTEGER DEFAULT 0,
+        duration REAL DEFAULT 0,
         created_at TEXT,
+        updated_at TEXT,
         FOREIGN KEY (album_id) REFERENCES albums (id)
       );
       CREATE TABLE IF NOT EXISTS play_history (
@@ -69,6 +111,9 @@ function initializeDatabase() {
       );
     `);
     console.log('SQLite数据库初始化完成');
+
+    // 执行数据库迁移
+    migrateDatabase();
   } catch (error) {
     console.error('SQLite数据库初始化失败:', error);
   }
