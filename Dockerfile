@@ -72,7 +72,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # 创建数据目录并设置权限
-RUN mkdir -p data && chown -R nextjs:nodejs data
+RUN mkdir -p data && chown -R nextjs:nodejs /app
 
 # 切换到非 root 用户
 USER nextjs
