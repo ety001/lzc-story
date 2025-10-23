@@ -210,6 +210,26 @@ pnpm build
 pnpm start
 ```
 
+## CI/CD
+
+### GitHub Actions
+
+项目配置了 GitHub Actions 自动构建和部署：
+
+- **触发条件**：当代码推送到 `master` 分支时自动触发
+- **构建内容**：自动构建 Docker 镜像并推送到 Docker Hub
+- **镜像标签**：`ety001/lzc-story:latest`
+- **支持架构**：`linux/amd64` 和 `linux/arm64`
+
+#### 设置 Secrets
+
+在 GitHub 仓库中设置以下 secrets：
+
+1. `DOCKER_USERNAME` - Docker Hub 用户名
+2. `DOCKER_PASSWORD` - Docker Hub 密码或访问令牌
+
+详细设置步骤请参考 [.github/README.md](.github/README.md)
+
 ## 注意事项
 
 - 确保服务器有访问音频文件路径的权限
