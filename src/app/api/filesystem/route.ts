@@ -25,15 +25,33 @@ export async function GET(request: NextRequest) {
     const items = fs.readdirSync(dirPath)
       .map(item => {
         const fullPath = path.join(dirPath, item);
-        const itemStat = fs.statSync(fullPath);
 
-        return {
-          name: item,
-          path: fullPath,
-          isDirectory: itemStat.isDirectory(),
-          size: itemStat.size,
-          modified: itemStat.mtime
-        };
+        try {
+          const itemStat = fs.statSync(fullPath);
+
+          return {
+            name: item,
+            path: fullPath,
+            isDirectory: itemStat.isDirectory(),
+            size: itemStat.size,
+            modified: itemStat.mtime,
+            isBrokenSymlink: false
+          };
+        } catch (error) {
+          // 处理符号链接指向不存在目标的情况
+          if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return {
+              name: item,
+              path: fullPath,
+              isDirectory: false,
+              size: 0,
+              modified: new Date(),
+              isBrokenSymlink: true
+            };
+          }
+          // 其他错误继续抛出
+          throw error;
+        }
       })
       .filter(item => item.isDirectory) // 只返回目录
       .sort((a, b) => a.name.localeCompare(b.name)); // 按名称排序
