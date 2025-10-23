@@ -187,14 +187,38 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
     }
   };
 
-  const openFileBrowser = () => {
+  const openFileBrowser = async () => {
     setShowFileBrowser(true);
+
+    // 如果输入框中有内容，尝试以该路径为起始点
+    if (formData.path.trim()) {
+      try {
+        const response = await fetch(getApiUrl(`/api/filesystem?path=${encodeURIComponent(formData.path)}`));
+        if (response.ok) {
+          const data = await response.json();
+          setFileSystemItems(data.items);
+          setCurrentPath(data.currentPath);
+          return;
+        }
+      } catch {
+        // 如果请求失败，继续使用根目录
+      }
+    }
+
+    // 如果输入框为空或路径不存在，则显示根目录
     loadFileSystem('/');
   };
 
   const selectPath = (path: string) => {
     setFormData({ ...formData, path });
+    closeFileBrowser();
+  };
+
+  const closeFileBrowser = () => {
     setShowFileBrowser(false);
+    // 清空文件浏览器相关状态
+    setFileSystemItems([]);
+    setCurrentPath('/');
   };
 
   const startEdit = (album: Album) => {
@@ -374,7 +398,10 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowCreateForm(false)}
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setFormData({ name: '', path: '' });
+                    }}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200"
                   >
                     取消
@@ -445,6 +472,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     onClick={() => {
                       setShowEditForm(false);
                       setEditingAlbum(null);
+                      setFormData({ name: '', path: '' }); // 清空表单数据
                     }}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200"
                   >
@@ -463,7 +491,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">选择路径</h2>
                 <button
-                  onClick={() => setShowFileBrowser(false)}
+                  onClick={closeFileBrowser}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   ✕
@@ -503,7 +531,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     选择当前路径
                   </button>
                   <button
-                    onClick={() => setShowFileBrowser(false)}
+                    onClick={closeFileBrowser}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200"
                   >
                     取消
