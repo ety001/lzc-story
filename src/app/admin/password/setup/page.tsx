@@ -15,7 +15,7 @@ export default function PasswordSetupPage() {
   };
 
   return (
-    <PasswordSetup 
+    <PasswordSetup
       onPasswordSet={handlePasswordSetup}
       onBack={handleBack}
     />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     const { pathname, origin } = request.nextUrl;
 
     // 仅允许 localhost 访问 /test
@@ -19,8 +19,8 @@ export function middleware(request: NextRequest) {
 
     // 保护 /admin 路由，但放行密码设置/验证页面
     if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/password')) {
+        // 检查会话 Cookie
         const sessionToken = request.cookies.get('admin_session')?.value;
-
         if (!sessionToken) {
             return NextResponse.redirect(new URL('/admin/password/verify', origin));
         }

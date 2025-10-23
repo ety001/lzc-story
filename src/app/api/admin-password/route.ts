@@ -70,7 +70,17 @@ export async function POST(request: NextRequest) {
       db.insert('admin_config', { password_hash: passwordHash });
     }
 
-    return NextResponse.json({ message: '密码设置成功' });
+    // 设置密码已设置的 Cookie 标记
+    const response = NextResponse.json({ message: '密码设置成功' });
+    response.cookies.set('admin_password_set', 'true', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 365, // 1年
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('设置密码失败:', error);
     return NextResponse.json({ error: '设置密码失败' }, { status: 500 });
@@ -117,6 +127,16 @@ export async function PUT(request: NextRequest) {
         maxAge: 60 * 60 * 24, // 24 小时
         path: '/',
       });
+
+      // 同时设置密码已设置的 Cookie 标记（在验证成功时更新）
+      response.cookies.set('admin_password_set', 'true', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 365, // 1年
+        path: '/',
+      });
+
       return response;
     } else {
       return NextResponse.json({ error: '密码错误' }, { status: 401 });
