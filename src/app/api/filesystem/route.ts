@@ -56,6 +56,19 @@ export async function GET(request: NextRequest) {
       .filter(item => item.isDirectory) // 只返回目录
       .sort((a, b) => a.name.localeCompare(b.name)); // 按名称排序
 
+    // 添加返回上一级选项（如果不是根目录）
+    const parentPath = path.dirname(dirPath);
+    if (parentPath !== dirPath) { // 不是根目录
+      items.unshift({
+        name: '..',
+        path: parentPath,
+        isDirectory: true,
+        size: 0,
+        modified: new Date(),
+        isBrokenSymlink: false
+      });
+    }
+
     return NextResponse.json({
       currentPath: dirPath,
       parentPath: path.dirname(dirPath),
