@@ -18,6 +18,9 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
         echo "未检测到代理配置"; \
     fi
 
+# 安装 better-sqlite3 所需的系统依赖
+RUN apk add --no-cache python3 make g++ sqlite-dev
+
 # 复制 package.json 和 pnpm-lock.yaml
 COPY package.json pnpm-lock.yaml ./
 
@@ -35,6 +38,23 @@ RUN pnpm build
 
 # 生产阶段
 FROM node:20-alpine AS runner
+
+# 设置 HTTP 代理
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY=localhost,127.0.0.1
+
+# 检测代理配置并写入 /etc/apk/proxy
+RUN if [ -n "$HTTP_PROXY" ]; then \
+        echo "$HTTP_PROXY" > /etc/apk/proxy && \
+        echo "$HTTPS_PROXY" >> /etc/apk/proxy && \
+        echo "配置 Alpine 代理: $HTTP_PROXY"; \
+    else \
+        echo "未检测到代理配置"; \
+    fi
+
+# 在生产阶段也需要 sqlite 运行时库
+RUN apk add --no-cache sqlite
 
 # 设置工作目录
 WORKDIR /app
