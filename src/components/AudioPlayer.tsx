@@ -26,13 +26,17 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   // 添加播放历史记录
   const addToPlayHistory = useCallback(async (playTime?: number) => {
+    console.log('addToPlayHistory 被调用, playTime:', playTime, 'currentFile:', currentFile?.filename);
+
     if (currentFile) {
-      const timeToRecord = playTime || currentTime;
+      const timeToRecord = playTime ?? 0;
+      console.log('准备记录播放时间:', timeToRecord);
 
       // 只有当播放时间大于0时才记录
       if (timeToRecord > 0) {
         try {
-          await fetch(getApiUrl('/api/play-history'), {
+          console.log('发送API请求更新播放历史...');
+          const response = await fetch(getApiUrl('/api/play-history'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -43,25 +47,22 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               playTime: timeToRecord,
             }),
           });
+
+          if (response.ok) {
+            console.log('播放历史更新成功');
+          } else {
+            console.error('播放历史更新失败:', response.status);
+          }
         } catch (error) {
           console.error('添加播放记录失败:', error);
         }
+      } else {
+        console.log('播放时间为0，跳过记录');
       }
+    } else {
+      console.log('没有当前文件，跳过记录');
     }
-  }, [currentFile, currentTime, album.id]);
-
-  // 开始定时记录播放时间
-  const startPlayTimeRecording = useCallback(() => {
-    if (playTimeIntervalRef.current) {
-      clearInterval(playTimeIntervalRef.current);
-    }
-
-    playTimeIntervalRef.current = setInterval(() => {
-      if (isPlayingRef.current && audioRef.current) {
-        addToPlayHistory(audioRef.current.currentTime);
-      }
-    }, 5000); // 每5秒记录一次
-  }, [addToPlayHistory]);
+  }, [currentFile, album.id]);
 
   // 停止定时记录播放时间
   const stopPlayTimeRecording = useCallback(() => {
@@ -71,12 +72,27 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, []);
 
-  // 禁用浏览器后退功能和清理定时器
+  // 使用 useEffect 管理播放时间记录（定时器部分）
   useEffect(() => {
+    console.log('播放时间记录 useEffect 触发, isPlaying:', isPlaying);
+
+    if (isPlaying) {
+      // 播放时创建5秒定时器，定时调用API更新历史记录
+      playTimeIntervalRef.current = setInterval(() => {
+        if (isPlayingRef.current && audioRef.current) {
+          addToPlayHistory(audioRef.current.currentTime);
+        }
+      }, 5000); // 每5秒记录一次
+    } else {
+      // 暂停时销毁定时器
+      stopPlayTimeRecording();
+    }
+
+    // 清理函数
     return () => {
       stopPlayTimeRecording();
     };
-  }, [stopPlayTimeRecording]);
+  }, [isPlaying, addToPlayHistory, stopPlayTimeRecording]);
 
   // 处理从播放历史记录进入的情况
   useEffect(() => {
@@ -122,7 +138,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audioRef.current.play().then(() => {
           setIsPlaying(true);
           isPlayingRef.current = true;
-          startPlayTimeRecording();
         }).catch((error) => {
           // 忽略自动播放被阻止的错误，这是正常的
           if (error.name !== 'NotAllowedError') {
@@ -141,7 +156,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('canplay', handleAudioReady);
       };
     }
-  }, [selectedHistoryItem, audioFiles, currentIndex, startPlayTimeRecording]);
+  }, [selectedHistoryItem, audioFiles, currentIndex]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -216,10 +231,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               console.log('Auto-play successful');
               setIsPlaying(true);
               isPlayingRef.current = true;
-              // 延迟启动播放时间记录，避免在 useEffect 中调用
-              setTimeout(() => {
-                startPlayTimeRecording();
-              }, 100);
+              // 播放时间记录由 useEffect 自动管理
             }).catch((error) => {
               // 忽略 AbortError 和 NotAllowedError，这是正常的
               if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
@@ -257,7 +269,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           playPromise.then(() => {
             setIsPlaying(true);
             isPlayingRef.current = true;
-            startPlayTimeRecording();
           }).catch((error) => {
             // 忽略 AbortError 和 NotAllowedError，这是正常的
             if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
@@ -272,7 +283,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
         audio.removeEventListener('canplay', handleCanPlay);
       };
     }
-  }, [autoPlay, startPlayTimeRecording, currentFile, currentIndex]);
+  }, [autoPlay, currentFile, currentIndex]);
 
   const togglePlayPause = async () => {
     console.log('togglePlayPause called, isPlaying:', isPlaying, 'isPlayingRef:', isPlayingRef.current);
@@ -355,13 +366,9 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     // 等待状态更新
     setTimeout(() => {
       if (!wasPlaying) {
-        // 开始播放时，记录当前播放时间并启动定时记录
-        addToPlayHistory(audioRef.current?.currentTime || 0);
-        startPlayTimeRecording();
+        // 播放状态由 useEffect 自动管理
       } else {
-        // 暂停时，记录当前播放时间并停止定时记录
-        addToPlayHistory(audioRef.current?.currentTime || 0);
-        stopPlayTimeRecording();
+        // 播放状态由 useEffect 自动管理
       }
     }, 100);
   };
