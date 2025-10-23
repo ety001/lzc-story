@@ -152,13 +152,45 @@ src/
 
 ## 部署
 
-### 构建生产版本
+### Docker 部署
+
+#### 使用代理构建（推荐）
+
+如果您的网络环境需要使用代理，可以使用提供的构建脚本：
+
+```bash
+# 交互式代理配置构建（推荐）
+./docker-build.sh
+
+# 指定镜像标签
+./docker-build.sh ety001/lzc-story:latest
+```
+
+脚本会询问是否需要配置代理：
+- 选择"是"：手动输入代理地址
+- 选择"否"：使用环境变量或直连
+
+#### 运行容器
+
+```bash
+# 运行容器
+docker run -d \
+  --name lzc-story \
+  -p 3000:3000 \
+  -v /path/to/your/data:/app/data \
+  -v /path/to/your/music:/app/music \
+  ety001/lzc-story
+```
+
+### 传统部署
+
+#### 构建生产版本
 
 ```bash
 pnpm build
 ```
 
-### 启动生产服务器
+#### 启动生产服务器
 
 ```bash
 pnpm start

@@ -4,6 +4,23 @@ FROM node:20-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
+# 设置 HTTP 代理
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY=localhost,127.0.0.1
+
+# 检测代理配置并写入 /etc/apk/proxy
+RUN if [ -n "$HTTP_PROXY" ]; then \
+        echo "$HTTP_PROXY" > /etc/apk/proxy && \
+        echo "$HTTPS_PROXY" >> /etc/apk/proxy && \
+        echo "配置 Alpine 代理: $HTTP_PROXY"; \
+    else \
+        echo "未检测到代理配置"; \
+    fi
+
+# 更新包索引
+RUN apk update
+
 # 安装构建依赖
 RUN apk add --no-cache \
     python3 \
@@ -21,6 +38,9 @@ RUN npm install -g pnpm
 # 安装所有依赖（包括 devDependencies）
 RUN pnpm install --frozen-lockfile
 
+# 重新构建 better-sqlite3 原生模块
+RUN pnpm rebuild better-sqlite3
+
 # 复制源代码
 COPY . .
 
@@ -32,6 +52,23 @@ FROM node:20-alpine AS runner
 
 # 设置工作目录
 WORKDIR /app
+
+# 设置 HTTP 代理
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY=localhost,127.0.0.1
+
+# 检测代理配置并写入 /etc/apk/proxy
+RUN if [ -n "$HTTP_PROXY" ]; then \
+        echo "$HTTP_PROXY" > /etc/apk/proxy && \
+        echo "$HTTPS_PROXY" >> /etc/apk/proxy && \
+        echo "配置 Alpine 代理: $HTTP_PROXY"; \
+    else \
+        echo "未检测到代理配置"; \
+    fi
+
+# 更新包索引
+RUN apk update
 
 # 安装运行时依赖
 RUN apk add --no-cache \
