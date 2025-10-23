@@ -357,6 +357,13 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                       <Folder className="w-4 h-4" />
                     </button>
                   </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    <div className="font-medium mb-1">常用路径参考:</div>
+                    <div className="space-y-1">
+                      <div className="font-mono">/lzcapp/document</div>
+                      <div className="font-mono">/lzcapp/media/RemoteFS</div>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex space-x-3">
                   <button
@@ -417,6 +424,13 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     >
                       <Folder className="w-4 h-4" />
                     </button>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    <div className="font-medium mb-1">常用路径参考:</div>
+                    <div className="space-y-1">
+                      <div className="font-mono">/lzcapp/document</div>
+                      <div className="font-mono">/lzcapp/media/RemoteFS</div>
+                    </div>
                   </div>
                 </div>
                 <div className="flex space-x-3">
