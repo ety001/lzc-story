@@ -99,13 +99,13 @@ export default function PlayHistory() {
                 return acc;
             }, {})).map(([albumName, group], groupIndex) => (
                 <div key={groupIndex} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-3 border-b">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-300">
                         <h3 className="font-medium text-gray-900 truncate" title={albumName}>
                             {albumName}
                         </h3>
                     </div>
 
-                    <div className="divide-y">
+                    <div className="divide-y divide-gray-200">
                         {group.map((item) => (
                             <div
                                 key={`${item.audio_file_id}-${item.played_at}`}
