@@ -20,7 +20,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
   const historyProcessedRef = useRef(false);
-  const wasPlayingBeforeSwitchRef = useRef(false);
 
   const currentFile = audioFiles[currentIndex];
 
@@ -221,29 +220,21 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       const audio = audioRef.current;
       const handleLoadStart = () => { };
       const handleCanPlay = () => {
-        console.log('handleCanPlay triggered, wasPlayingBeforeSwitchRef:', wasPlayingBeforeSwitchRef.current);
-        // 只有在切歌前正在播放时才自动播放
-        if (wasPlayingBeforeSwitchRef.current) {
-          console.log('Auto-playing because was playing before switch');
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              console.log('Auto-play successful');
-              setIsPlaying(true);
-              isPlayingRef.current = true;
-              // 播放时间记录由 useEffect 自动管理
-            }).catch((error) => {
-              // 忽略 AbortError 和 NotAllowedError，这是正常的
-              if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
-                console.error('自动播放失败:', error);
-              }
-            });
-          }
-        } else {
-          console.log('Not auto-playing because was not playing before switch');
+        console.log('handleCanPlay triggered, auto-playing');
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('Auto-play successful');
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            // 播放时间记录由 useEffect 自动管理
+          }).catch((error) => {
+            // 忽略 AbortError 和 NotAllowedError，这是正常的
+            if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+              console.error('自动播放失败:', error);
+            }
+          });
         }
-        // 重置切歌前的播放状态
-        wasPlayingBeforeSwitchRef.current = false;
       };
       const handleError = (e: Event) => console.error('音频加载错误:', e);
 
@@ -314,10 +305,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const playPrevious = () => {
     console.log('playPrevious called, currentIndex:', currentIndex, 'isPlaying:', isPlayingRef.current);
     if (currentIndex > 0) {
-      // 记录切歌前的播放状态
-      wasPlayingBeforeSwitchRef.current = isPlayingRef.current;
-      console.log('wasPlayingBeforeSwitchRef set to:', wasPlayingBeforeSwitchRef.current);
-
       // 记录当前歌曲的播放时间
       addToPlayHistory(audioRef.current?.currentTime || 0);
       const newIndex = currentIndex - 1;
@@ -329,10 +316,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const playNext = () => {
     console.log('playNext called, currentIndex:', currentIndex, 'audioFiles.length:', audioFiles.length, 'isPlaying:', isPlayingRef.current);
     if (currentIndex < audioFiles.length - 1) {
-      // 记录切歌前的播放状态
-      wasPlayingBeforeSwitchRef.current = isPlayingRef.current;
-      console.log('wasPlayingBeforeSwitchRef set to:', wasPlayingBeforeSwitchRef.current);
-
       // 记录当前歌曲的播放时间
       addToPlayHistory(audioRef.current?.currentTime || 0);
       const newIndex = currentIndex + 1;
@@ -343,10 +326,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
   const selectTrack = (index: number) => {
     console.log('selectTrack called, index:', index, 'currentIndex:', currentIndex, 'isPlaying:', isPlayingRef.current);
-    // 记录切歌前的播放状态
-    wasPlayingBeforeSwitchRef.current = isPlayingRef.current;
-    console.log('wasPlayingBeforeSwitchRef set to:', wasPlayingBeforeSwitchRef.current);
-
     // 记录当前歌曲的播放时间
     addToPlayHistory(audioRef.current?.currentTime || 0);
     setCurrentIndex(index);
@@ -360,17 +339,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   };
 
   const handlePlay = async () => {
-    const wasPlaying = isPlaying;
     await togglePlayPause();
-
-    // 等待状态更新
-    setTimeout(() => {
-      if (!wasPlaying) {
-        // 播放状态由 useEffect 自动管理
-      } else {
-        // 播放状态由 useEffect 自动管理
-      }
-    }, 100);
   };
 
   // 进度条拖拽处理
