@@ -28,7 +28,6 @@ export async function GET() {
     const config = db.getOne('admin_config', '1=1') as AdminConfig | null;
     return NextResponse.json({
       hasPassword: !!config && config.password_hash && config.password_hash.trim() !== '',
-      password_hash: config?.password_hash || '',
       message: config && config.password_hash && config.password_hash.trim() !== '' ? '密码已设置' : '密码未设置'
     }, {
       headers: {
