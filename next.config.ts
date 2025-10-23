@@ -5,17 +5,17 @@ const nextConfig: NextConfig = {
   env: {
     MAX_ALBUMS: process.env.MAX_ALBUMS || '10',
   },
-  experimental: {
-    // 启用 turbopack 用于生产构建（可选）
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
-  },
+  // 禁用 turbopack 以避免与 better-sqlite3 的兼容性问题
+  // experimental: {
+  //   turbo: {
+  //     rules: {
+  //       '*.svg': {
+  //         loaders: ['@svgr/webpack'],
+  //         as: '*.js',
+  //       },
+  //     },
+  //   },
+  // },
 };
 
 export default nextConfig;
