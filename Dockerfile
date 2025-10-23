@@ -18,13 +18,6 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
         echo "未检测到代理配置"; \
     fi
 
-# 安装 better-sqlite3 所需的系统依赖
-RUN apk add --no-cache python3 make g++ sqlite-dev
-
-# 复制 package.json 和 pnpm-lock.yaml
-COPY package.json pnpm-lock.yaml ./
-
-# 安装 pnpm
 RUN npm install -g pnpm
 
 # 复制源代码
@@ -56,15 +49,8 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
         echo "未检测到代理配置"; \
     fi
 
-# 在生产阶段也需要 sqlite 运行时库
-RUN apk add --no-cache sqlite
-
 # 设置工作目录
 WORKDIR /app
-
-# 创建非 root 用户
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
 
 # 复制构建产物
 COPY --from=builder /app/public ./public
@@ -72,10 +58,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # 创建数据目录并设置权限
-RUN mkdir -p data && chown -R nextjs:nodejs /app
-
-# 切换到非 root 用户
-USER nextjs
+RUN mkdir -p data
 
 # 设置环境变量
 ENV NODE_ENV=production
