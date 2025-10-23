@@ -18,15 +18,6 @@ RUN if [ -n "$HTTP_PROXY" ]; then \
         echo "未检测到代理配置"; \
     fi
 
-# 更新包索引
-RUN apk update
-
-# 安装构建依赖
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++
-
 # 复制 package.json 和 pnpm-lock.yaml
 COPY package.json pnpm-lock.yaml ./
 
