@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start --turbopack",
+    "clear": "rm -rf .next out dist node_modules .turbo && echo '✅ 清理完成'",
     "lint": "eslint",
     "test": "vitest",
     "test:ui": "vitest --ui",

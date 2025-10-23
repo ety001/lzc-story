@@ -27,13 +27,16 @@ COPY package.json pnpm-lock.yaml ./
 # 安装 pnpm
 RUN npm install -g pnpm
 
-# 安装所有依赖（包括 devDependencies）
-RUN pnpm install --frozen-lockfile
-
 # 复制源代码
 COPY . .
 
-# 构建应用（不使用 turbopack）
+# 清理缓存和编译文件，确保 clean 状态
+RUN pnpm clear
+
+# 安装所有依赖（包括 devDependencies）
+RUN pnpm install --frozen-lockfile
+
+# 构建应用
 RUN pnpm build
 
 # 生产阶段

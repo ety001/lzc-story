@@ -51,6 +51,20 @@ pnpm dev
 
 打开 [http://localhost:3000](http://localhost:3000) 访问应用。
 
+### 清理缓存
+
+```bash
+# 清理所有缓存和编译文件，确保 clean 状态
+pnpm clear
+```
+
+这个命令会清理：
+- `.next` - Next.js 构建缓存
+- `out` - 静态导出目录
+- `dist` - 分发目录
+- `node_modules/.cache` - 依赖缓存
+- `.turbo` - Turbopack 缓存
+
 ## 使用说明
 
 ### 1. 首次设置
