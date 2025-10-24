@@ -176,17 +176,22 @@ class DatabaseManager {
   // 插入数据
   insert(table: string, record: Record<string, unknown>) {
     try {
-      const fields = Object.keys(record);
+      // 添加 created_at 时间戳
+      const recordWithTimestamp = {
+        ...record,
+        created_at: new Date().toISOString()
+      };
+
+      const fields = Object.keys(recordWithTimestamp);
       const placeholders = fields.map(() => '?').join(', ');
-      const values = fields.map(field => record[field]);
+      const values = fields.map(field => recordWithTimestamp[field as keyof typeof recordWithTimestamp]);
 
       const sql = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`;
       const result = executeStatement(sql, values);
 
       return {
         id: result.lastInsertRowid,
-        ...record,
-        created_at: new Date().toISOString()
+        ...recordWithTimestamp
       };
     } catch (error) {
       console.error(`插入${table}数据失败:`, error);

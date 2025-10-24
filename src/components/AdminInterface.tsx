@@ -318,7 +318,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                       {album.path}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {album.audio_count} 个音频文件 • 创建于 {new Date(album.created_at).toLocaleDateString()}
+                      {album.audio_count} 个音频文件 • 创建于 {album.created_at ? new Date(album.created_at).toLocaleDateString('zh-CN') : '未知时间'}
                     </p>
                   </div>
                   <div className="flex space-x-2">
