@@ -195,7 +195,7 @@ docker run -d \
   -v /path/to/your/music:/app/music \
   ety001/lzc-story
 ```
-> /app/data 目录是必须的，用来存放数据库
+> /app/data 目录是必须的，用来存放数据库，
 > /app/music 目录可以自己决定把你的音频资源挂载到容器里的哪个目录，这个没有强制设置
 
 ### 传统部署
