@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import fs from 'fs';
+import type { AdminSession } from '@/types';
 
 // 获取数据库路径，兼容不同运行时环境
 function getDbPath(): string {
@@ -130,6 +131,15 @@ function executeSQL<T = Record<string, unknown>>(sql: string, params: unknown[] 
   }
 }
 
+// ==================== 工具函数 ====================
+
+/**
+ * 获取当前时间戳（ISO 格式）
+ */
+function getCurrentTimestamp(): string {
+  return new Date().toISOString();
+}
+
 // 执行SQL语句（INSERT, UPDATE, DELETE）
 function executeStatement(sql: string, params: unknown[] = []): { lastInsertRowid?: number; changes?: number } {
   try {
@@ -179,7 +189,7 @@ class DatabaseManager {
       // 添加 created_at 时间戳
       const recordWithTimestamp = {
         ...record,
-        created_at: new Date().toISOString()
+        created_at: getCurrentTimestamp()
       };
 
       const fields = Object.keys(recordWithTimestamp);
@@ -207,7 +217,7 @@ class DatabaseManager {
       const values = fields.map(field => updates[field]);
 
       const sql = `UPDATE ${table} SET ${setClause}, updated_at = ? WHERE id = ?`;
-      const info = executeStatement(sql, [...values, new Date().toISOString(), id]);
+      const info = executeStatement(sql, [...values, getCurrentTimestamp(), id]);
 
       return !!info.changes && info.changes > 0;
     } catch (error) {
@@ -250,12 +260,19 @@ class DatabaseManager {
     return executeStatement(sql, params);
   }
 
-  // 会话管理方法
+  // ==================== 会话管理方法 ====================
+
+  /**
+   * 创建新的管理员会话
+   * @param token 会话 token
+   * @param expiresAt 过期时间（ISO 格式字符串）
+   * @returns 会话 ID，如果创建失败则返回 undefined
+   */
   createSession(token: string, expiresAt: string): number | undefined {
     try {
       const result = this.executeStatement(
         'INSERT INTO admin_sessions (token, expires_at, created_at) VALUES (?, ?, ?)',
-        [token, expiresAt, new Date().toISOString()]
+        [token, expiresAt, getCurrentTimestamp()]
       );
       return result.lastInsertRowid;
     } catch (error) {
@@ -264,10 +281,15 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * 验证会话是否有效
+   * @param token 会话 token
+   * @returns 如果会话有效返回 true，否则返回 false
+   */
   validateSession(token: string): boolean {
     try {
-      const sessions = this.executeSQL<{ expires_at: string }>(
-        'SELECT expires_at FROM admin_sessions WHERE token = ?',
+      const sessions = this.executeSQL<AdminSession>(
+        'SELECT * FROM admin_sessions WHERE token = ? LIMIT 1',
         [token]
       );
 
@@ -275,12 +297,13 @@ class DatabaseManager {
         return false;
       }
 
-      const expiresAt = new Date(sessions[0].expires_at);
+      const session = sessions[0];
+      const expiresAt = new Date(session.expires_at);
       const now = new Date();
 
       if (expiresAt <= now) {
         // 会话已过期，删除它
-        this.executeStatement('DELETE FROM admin_sessions WHERE token = ?', [token]);
+        this.deleteSession(token);
         return false;
       }
 
@@ -291,6 +314,11 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * 删除会话
+   * @param token 会话 token
+   * @returns 如果删除成功返回 true，否则返回 false
+   */
   deleteSession(token: string): boolean {
     try {
       const result = this.executeStatement('DELETE FROM admin_sessions WHERE token = ?', [token]);
@@ -301,9 +329,12 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * 清理所有过期的会话
+   */
   cleanupExpiredSessions(): void {
     try {
-      const now = new Date().toISOString();
+      const now = getCurrentTimestamp();
       this.executeStatement('DELETE FROM admin_sessions WHERE expires_at <= ?', [now]);
     } catch (error) {
       console.error('清理过期会话失败:', error);

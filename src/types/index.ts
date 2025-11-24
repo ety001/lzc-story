@@ -37,6 +37,45 @@ export interface AdminConfig {
     created_at: string;
 }
 
+// 管理员密码配置类型（用于数据库存储）
+export interface AdminPasswordConfig {
+    id: number;
+    password_hash: string;
+    created_at: string;
+    updated_at?: string;
+}
+
+// 管理员会话类型
+export interface AdminSession {
+    id: number;
+    token: string;
+    expires_at: string;
+    created_at: string;
+}
+
+// API 请求类型
+export interface SetPasswordRequest {
+    password: string;
+}
+
+export interface VerifyPasswordRequest {
+    password: string;
+}
+
+// API 响应类型
+export interface PasswordStatusResponse {
+    hasPassword: boolean;
+    message: string;
+}
+
+export interface PasswordOperationResponse {
+    message: string;
+}
+
+export interface ErrorResponse {
+    error: string;
+}
+
 // API 响应类型
 export interface AudioFileResponse {
     id: string | number;
