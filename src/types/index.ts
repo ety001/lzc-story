@@ -4,6 +4,7 @@ export interface Album {
     name: string;
     path: string;
     audio_count: number;
+    is_visible?: number; // 0 = 不显示, 1 = 显示
     created_at: string;
     updated_at: string;
 }
@@ -63,16 +64,16 @@ export interface VerifyPasswordRequest {
 }
 
 // API 响应类型
-export interface PasswordStatusResponse {
+export interface PasswordStatusResponse extends Record<string, unknown> {
     hasPassword: boolean;
     message: string;
 }
 
-export interface PasswordOperationResponse {
+export interface PasswordOperationResponse extends Record<string, unknown> {
     message: string;
 }
 
-export interface ErrorResponse {
+export interface ErrorResponse extends Record<string, unknown> {
     error: string;
 }
 

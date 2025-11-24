@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Edit, Trash2, Folder, Music, LogOut } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Plus, Edit, Trash2, Folder, Music, LogOut, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
@@ -10,7 +10,15 @@ interface Album {
   name: string;
   path: string;
   audio_count: number;
+  is_visible?: number;
   created_at: string;
+}
+
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 interface FileSystemItem {
@@ -33,14 +41,47 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
-  const [formData, setFormData] = useState({ name: '', path: '' });
+  const [formData, setFormData] = useState({ name: '', path: '', is_visible: false });
   const [fileSystemItems, setFileSystemItems] = useState<FileSystemItem[]>([]);
   const [currentPath, setCurrentPath] = useState('/');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedAlbums, setSelectedAlbums] = useState<number[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    limit: parseInt(process.env.NEXT_PUBLIC_ADMIN_ALBUMS_PER_PAGE || process.env.ADMIN_ALBUMS_PER_PAGE || '10'),
+    total: 0,
+    totalPages: 0
+  });
+
+  const loadAlbums = useCallback(async () => {
+    try {
+      const perPage = parseInt(process.env.NEXT_PUBLIC_ADMIN_ALBUMS_PER_PAGE || process.env.ADMIN_ALBUMS_PER_PAGE || '10');
+      const response = await fetch(getApiUrl(`/api/albums?admin=true&page=${currentPage}&limit=${perPage}`));
+      const data = await response.json();
+      
+      if (data.albums && data.pagination) {
+        // 管理界面返回分页数据
+        setAlbums(data.albums);
+        setPagination(data.pagination);
+      } else if (Array.isArray(data)) {
+        // 兼容旧格式
+        setAlbums(data);
+      } else {
+        setAlbums([]);
+      }
+    } catch {
+      setError('加载专辑列表失败');
+      setAlbums([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage]);
+
   useEffect(() => {
     loadAlbums();
-  }, []);
+  }, [loadAlbums]);
 
   // 消息自动消失
   useEffect(() => {
@@ -53,20 +94,6 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
       return () => clearTimeout(timer);
     }
   }, [error, success]);
-
-  const loadAlbums = async () => {
-    try {
-      const response = await fetch(getApiUrl('/api/albums'));
-      const data = await response.json();
-      // 确保data是数组
-      setAlbums(Array.isArray(data) ? data : []);
-    } catch {
-      setError('加载专辑列表失败');
-      setAlbums([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadFileSystem = async (path: string) => {
     try {
@@ -92,7 +119,8 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
         },
         body: JSON.stringify({
           name: formData.name,
-          albumPath: formData.path
+          albumPath: formData.path,
+          is_visible: formData.is_visible
         }),
       });
 
@@ -100,7 +128,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
 
       if (response.ok) {
         setSuccess('专辑创建成功，正在扫描音频文件...');
-        setFormData({ name: '', path: '' });
+        setFormData({ name: '', path: '', is_visible: false });
         setShowCreateForm(false);
         loadAlbums();
       } else {
@@ -128,6 +156,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
           id: editingAlbum.id,
           name: formData.name,
           albumPath: formData.path,
+          is_visible: formData.is_visible
         }),
       });
 
@@ -135,7 +164,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
 
       if (response.ok) {
         setSuccess('专辑更新成功');
-        setFormData({ name: '', path: '' });
+        setFormData({ name: '', path: '', is_visible: false });
         setShowEditForm(false);
         setEditingAlbum(null);
         loadAlbums();
@@ -223,8 +252,60 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
 
   const startEdit = (album: Album) => {
     setEditingAlbum(album);
-    setFormData({ name: album.name, path: album.path });
+    setFormData({ 
+      name: album.name, 
+      path: album.path,
+      is_visible: (album.is_visible ?? 0) === 1
+    });
     setShowEditForm(true);
+  };
+
+  const handleSelectAlbum = (albumId: number) => {
+    setSelectedAlbums(prev => 
+      prev.includes(albumId) 
+        ? prev.filter(id => id !== albumId)
+        : [...prev, albumId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedAlbums.length === albums.length) {
+      setSelectedAlbums([]);
+    } else {
+      setSelectedAlbums(albums.map(album => album.id));
+    }
+  };
+
+  const handleBatchUpdateVisibility = async (isVisible: boolean) => {
+    if (selectedAlbums.length === 0) {
+      setError('请先选择要操作的专辑');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/albums', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          albumIds: selectedAlbums,
+          is_visible: isVisible
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(`已${isVisible ? '显示' : '隐藏'} ${selectedAlbums.length} 个专辑`);
+        setSelectedAlbums([]);
+        loadAlbums();
+      } else {
+        setError(data.error || '批量更新失败');
+      }
+    } catch {
+      setError('网络错误，请重试');
+    }
   };
 
   if (loading) {
@@ -252,7 +333,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
           <div>
             <h1 className="text-2xl font-bold text-gray-700">专辑管理</h1>
             <p className="text-sm text-gray-500 mt-1">
-              当前专辑: {albums.length} / {process.env.MAX_ALBUMS || 10}
+              共 {pagination.total} 个专辑
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -265,9 +346,8 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             </button>
             <button
               onClick={() => setShowCreateForm(true)}
-              disabled={albums.length >= parseInt(process.env.MAX_ALBUMS || '10')}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              title={albums.length >= parseInt(process.env.MAX_ALBUMS || '10') ? '专辑数量已达到上限' : '创建专辑'}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center"
+              title="创建专辑"
             >
               <Plus className="w-4 h-4 mx-auto" />
             </button>
@@ -286,6 +366,48 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
           </div>
         )}
 
+        {/* 批量操作栏 */}
+        {albums.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlbums.length === albums.length && albums.length > 0}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">全选</span>
+                </label>
+                {selectedAlbums.length > 0 && (
+                  <span className="text-sm text-gray-600">
+                    已选择 {selectedAlbums.length} 个专辑
+                  </span>
+                )}
+              </div>
+              {selectedAlbums.length > 0 && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleBatchUpdateVisibility(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center text-sm"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    显示
+                  </button>
+                  <button
+                    onClick={() => handleBatchUpdateVisibility(false)}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center text-sm"
+                  >
+                    <EyeOff className="w-4 h-4 mr-1" />
+                    隐藏
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 专辑列表 */}
         <div className="space-y-4">
           {albums.length === 0 ? (
@@ -294,8 +416,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
               <p className="text-gray-500 mb-4">暂无专辑</p>
               <button
                 onClick={() => setShowCreateForm(true)}
-                disabled={albums.length >= parseInt(process.env.MAX_ALBUMS || '10')}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
               >
                 创建第一个专辑
               </button>
@@ -304,22 +425,43 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             albums.map((album) => (
               <div key={album.id} className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1 pr-4">
-                    <h3
-                      className="font-medium text-gray-700 mb-1 max-w-xs"
-                      title={album.name}
-                    >
-                      {album.name}
-                    </h3>
-                    <p
-                      className="text-sm text-gray-600 mb-1 max-w-xs"
-                      title={album.path}
-                    >
-                      {album.path}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {album.audio_count} 个音频文件 • 创建于 {album.created_at ? new Date(album.created_at).toLocaleDateString('zh-CN') : '未知时间'}
-                    </p>
+                  <div className="flex items-center space-x-3 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedAlbums.includes(album.id)}
+                      onChange={() => handleSelectAlbum(album.id)}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3
+                          className="font-medium text-gray-700 max-w-xs"
+                          title={album.name}
+                        >
+                          {album.name}
+                        </h3>
+                        {(album.is_visible ?? 0) === 1 ? (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full flex items-center">
+                            <Eye className="w-3 h-3 mr-1" />
+                            显示
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full flex items-center">
+                            <EyeOff className="w-3 h-3 mr-1" />
+                            隐藏
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className="text-sm text-gray-600 mb-1 max-w-xs"
+                        title={album.path}
+                      >
+                        {album.path}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {album.audio_count} 个音频文件 • 创建于 {album.created_at ? new Date(album.created_at).toLocaleDateString('zh-CN') : '未知时间'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -340,6 +482,29 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
             ))
           )}
         </div>
+
+        {/* 分页控件 */}
+        {pagination.totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-center space-x-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm text-gray-700">
+              第 {currentPage} / {pagination.totalPages} 页
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+              disabled={currentPage === pagination.totalPages}
+              className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* 创建专辑表单 */}
         {showCreateForm && (
@@ -389,6 +554,18 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     </div>
                   </div>
                 </div>
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_visible}
+                      onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">在前台显示</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">勾选后，该专辑将在前台播放器中显示</p>
+                </div>
                 <div className="flex space-x-3">
                   <button
                     type="submit"
@@ -400,7 +577,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     type="button"
                     onClick={() => {
                       setShowCreateForm(false);
-                      setFormData({ name: '', path: '' });
+                      setFormData({ name: '', path: '', is_visible: false });
                     }}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200"
                   >
@@ -460,6 +637,18 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     </div>
                   </div>
                 </div>
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_visible}
+                      onChange={(e) => setFormData({ ...formData, is_visible: e.target.checked })}
+                      className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">在前台显示</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">勾选后，该专辑将在前台播放器中显示</p>
+                </div>
                 <div className="flex space-x-3">
                   <button
                     type="submit"
@@ -472,7 +661,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
                     onClick={() => {
                       setShowEditForm(false);
                       setEditingAlbum(null);
-                      setFormData({ name: '', path: '' }); // 清空表单数据
+                      setFormData({ name: '', path: '', is_visible: false }); // 清空表单数据
                     }}
                     className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200"
                   >

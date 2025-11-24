@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         FROM play_history ph
         JOIN albums a ON ph.album_id = a.id
         JOIN audio_files af ON ph.audio_file_id = af.id
-        WHERE ph.audio_file_id = ? AND ph.album_id = ?
+        WHERE ph.audio_file_id = ? AND ph.album_id = ? AND (a.is_visible = 1 OR a.is_visible IS NULL)
         ORDER BY ph.played_at DESC
         LIMIT 1
       `;
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 默认行为：获取按专辑分组的最新三条记录
+    // 默认行为：获取按专辑分组的最新三条记录（只显示可见专辑）
     const sql = `
       WITH ranked_history AS (
         SELECT 
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
         FROM play_history ph
         JOIN albums a ON ph.album_id = a.id
         JOIN audio_files af ON ph.audio_file_id = af.id
+        WHERE a.is_visible = 1 OR a.is_visible IS NULL
       )
       SELECT 
         id,
@@ -92,7 +93,10 @@ export async function GET(request: NextRequest) {
       FROM ranked_history
       WHERE rn <= 3
       ORDER BY 
-        (SELECT MAX(played_at) FROM play_history ph2 WHERE ph2.album_id = ranked_history.album_id) DESC,
+        (SELECT MAX(played_at) FROM play_history ph2 
+         JOIN albums a2 ON ph2.album_id = a2.id 
+         WHERE ph2.album_id = ranked_history.album_id 
+         AND (a2.is_visible = 1 OR a2.is_visible IS NULL)) DESC,
         played_at DESC
     `;
 
