@@ -1,10 +1,21 @@
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Settings, Play, Clock } from 'lucide-react';
 import LazyCatIcon from '@/components/LazyCatIcon';
 import ClientOnly from '@/components/ClientOnly';
 import PlayHistory from '@/components/PlayHistory';
+import { isOldWebView } from '@/lib/webview-detector';
 
-export default function Home() {
+export default async function Home() {
+  // 检测 WebView 版本并重定向
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent');
+  
+  if (isOldWebView(userAgent)) {
+    redirect('/simple/list');
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 头部 */}
