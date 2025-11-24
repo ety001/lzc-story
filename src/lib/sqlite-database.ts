@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import * as path from 'path';
 import fs from 'fs';
 import type { AdminSession } from '@/types';
@@ -16,50 +16,68 @@ function getDbPath(): string {
 
 const dbPath = getDbPath();
 
-// 确保数据目录存在
-const dataDir = path.dirname(dbPath);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// 延迟初始化数据库连接（避免在构建时访问数据库）
+let db: DatabaseType | null = null;
+let dbInitialized = false;
 
-// 初始化数据库连接
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+function getDatabase(): DatabaseType {
+  // 检查是否在构建阶段
+  const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+
+  if (isBuildPhase) {
+    // 在构建阶段抛出错误，由调用方处理
+    throw new Error('Database access is not available during build phase');
+  }
+
+  if (!db) {
+    // 确保数据目录存在
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // 初始化数据库连接
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+  }
+  return db;
+}
 
 // 数据库迁移函数
 function migrateDatabase() {
   try {
+    const database = getDatabase();
     // 检查并添加 albums 表的缺失列
-    const albumsColumns = db.pragma('table_info(albums)') as Array<{ name: string }>;
+    const albumsColumns = database.pragma('table_info(albums)') as Array<{ name: string }>;
     const columnNames = albumsColumns.map(col => col.name);
 
     if (!columnNames.includes('audio_count')) {
-      db.exec('ALTER TABLE albums ADD COLUMN audio_count INTEGER DEFAULT 0');
+      database.exec('ALTER TABLE albums ADD COLUMN audio_count INTEGER DEFAULT 0');
     }
 
     if (!columnNames.includes('updated_at')) {
-      db.exec('ALTER TABLE albums ADD COLUMN updated_at TEXT');
+      database.exec('ALTER TABLE albums ADD COLUMN updated_at TEXT');
     }
 
     if (!columnNames.includes('is_visible')) {
-      db.exec('ALTER TABLE albums ADD COLUMN is_visible INTEGER DEFAULT 0');
+      database.exec('ALTER TABLE albums ADD COLUMN is_visible INTEGER DEFAULT 0');
     }
 
     // 检查并添加 audio_files 表的缺失列
-    const audioFilesColumns = db.pragma('table_info(audio_files)') as Array<{ name: string }>;
+    const audioFilesColumns = database.pragma('table_info(audio_files)') as Array<{ name: string }>;
     const audioFileColumnNames = audioFilesColumns.map(col => col.name);
 
     if (!audioFileColumnNames.includes('file_size')) {
-      db.exec('ALTER TABLE audio_files ADD COLUMN file_size INTEGER DEFAULT 0');
+      database.exec('ALTER TABLE audio_files ADD COLUMN file_size INTEGER DEFAULT 0');
     }
 
     if (!audioFileColumnNames.includes('duration')) {
-      db.exec('ALTER TABLE audio_files ADD COLUMN duration REAL DEFAULT 0');
+      database.exec('ALTER TABLE audio_files ADD COLUMN duration REAL DEFAULT 0');
     }
 
     if (!audioFileColumnNames.includes('updated_at')) {
-      db.exec('ALTER TABLE audio_files ADD COLUMN updated_at TEXT');
+      database.exec('ALTER TABLE audio_files ADD COLUMN updated_at TEXT');
     }
 
     console.log('数据库迁移完成');
@@ -71,7 +89,8 @@ function migrateDatabase() {
 // 初始化数据库
 function initializeDatabase() {
   try {
-    db.exec(`
+    const database = getDatabase();
+    database.exec(`
       CREATE TABLE IF NOT EXISTS admin_config (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         password_hash TEXT NOT NULL,
@@ -128,9 +147,14 @@ function initializeDatabase() {
 // 执行SQL查询
 function executeSQL<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
   try {
-    const stmt = db.prepare(sql);
+    const database = getDatabase();
+    const stmt = database.prepare(sql);
     return stmt.all(...params) as T[];
   } catch (error) {
+    // 在构建阶段忽略数据库错误
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return [];
+    }
     console.error('执行SQL查询失败:', error);
     return [];
   }
@@ -148,13 +172,18 @@ function getCurrentTimestamp(): string {
 // 执行SQL语句（INSERT, UPDATE, DELETE）
 function executeStatement(sql: string, params: unknown[] = []): { lastInsertRowid?: number; changes?: number } {
   try {
-    const stmt = db.prepare(sql);
+    const database = getDatabase();
+    const stmt = database.prepare(sql);
     const info = stmt.run(...params);
     return {
       lastInsertRowid: Number(info.lastInsertRowid) || undefined,
       changes: info.changes ?? 0
     };
   } catch (error) {
+    // 在构建阶段忽略数据库错误
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return { lastInsertRowid: undefined, changes: 0 };
+    }
     console.error('执行SQL语句失败:', error);
     throw error;
   }
@@ -164,6 +193,7 @@ function executeStatement(sql: string, params: unknown[] = []): { lastInsertRowi
 class DatabaseManager {
   // 获取数据
   get(table: string, condition?: string, params?: unknown[]) {
+    ensureDatabaseInitialized();
     try {
       let sql = `SELECT * FROM ${table}`;
       if (condition) {
@@ -178,6 +208,7 @@ class DatabaseManager {
 
   // 获取单条记录
   getOne(table: string, condition: string, params?: unknown[]) {
+    ensureDatabaseInitialized();
     try {
       const sql = `SELECT * FROM ${table} WHERE ${condition} LIMIT 1`;
       const results = executeSQL(sql, params || []);
@@ -190,6 +221,7 @@ class DatabaseManager {
 
   // 插入数据
   insert(table: string, record: Record<string, unknown>) {
+    ensureDatabaseInitialized();
     try {
       // 添加 created_at 时间戳
       const recordWithTimestamp = {
@@ -216,6 +248,7 @@ class DatabaseManager {
 
   // 更新数据
   update(table: string, id: number, updates: Record<string, unknown>) {
+    ensureDatabaseInitialized();
     try {
       const fields = Object.keys(updates);
       const setClause = fields.map(field => `${field} = ?`).join(', ');
@@ -233,6 +266,7 @@ class DatabaseManager {
 
   // 删除数据
   delete(table: string, id: number) {
+    ensureDatabaseInitialized();
     try {
       const sql = `DELETE FROM ${table} WHERE id = ?`;
       const info = executeStatement(sql, [id]);
@@ -245,6 +279,7 @@ class DatabaseManager {
 
   // 删除所有符合条件的记录
   deleteMany(table: string, condition: string, params?: unknown[]) {
+    ensureDatabaseInitialized();
     try {
       const sql = `DELETE FROM ${table} WHERE ${condition}`;
       const info = executeStatement(sql, params || []);
@@ -257,11 +292,13 @@ class DatabaseManager {
 
   // 执行SQL查询（暴露给外部使用）
   executeSQL<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
+    ensureDatabaseInitialized();
     return executeSQL<T>(sql, params);
   }
 
   // 执行SQL语句（暴露给外部使用）
   executeStatement(sql: string, params: unknown[] = []): { lastInsertRowid?: number; changes?: number } {
+    ensureDatabaseInitialized();
     return executeStatement(sql, params);
   }
 
@@ -274,6 +311,7 @@ class DatabaseManager {
    * @returns 会话 ID，如果创建失败则返回 undefined
    */
   createSession(token: string, expiresAt: string): number | undefined {
+    ensureDatabaseInitialized();
     try {
       const result = this.executeStatement(
         'INSERT INTO admin_sessions (token, expires_at, created_at) VALUES (?, ?, ?)',
@@ -292,6 +330,7 @@ class DatabaseManager {
    * @returns 如果会话有效返回 true，否则返回 false
    */
   validateSession(token: string): boolean {
+    ensureDatabaseInitialized();
     try {
       const sessions = this.executeSQL<AdminSession>(
         'SELECT * FROM admin_sessions WHERE token = ? LIMIT 1',
@@ -325,6 +364,7 @@ class DatabaseManager {
    * @returns 如果删除成功返回 true，否则返回 false
    */
   deleteSession(token: string): boolean {
+    ensureDatabaseInitialized();
     try {
       const result = this.executeStatement('DELETE FROM admin_sessions WHERE token = ?', [token]);
       return (result.changes ?? 0) > 0;
@@ -338,6 +378,7 @@ class DatabaseManager {
    * 清理所有过期的会话
    */
   cleanupExpiredSessions(): void {
+    ensureDatabaseInitialized();
     try {
       const now = getCurrentTimestamp();
       this.executeStatement('DELETE FROM admin_sessions WHERE expires_at <= ?', [now]);
@@ -347,9 +388,23 @@ class DatabaseManager {
   }
 }
 
-// 程序启动时立即初始化数据库
-initializeDatabase();
+// 延迟初始化数据库（只在运行时初始化，不在构建时初始化）
+function ensureDatabaseInitialized() {
+  if (!dbInitialized) {
+    try {
+      initializeDatabase();
+      dbInitialized = true;
+    } catch (error) {
+      // 在构建阶段忽略数据库初始化错误
+      if (process.env.NEXT_PHASE === 'phase-production-build') {
+        return;
+      }
+      console.error('数据库初始化失败:', error);
+    }
+  }
+}
 
+// 创建并导出数据库管理器实例
 const dbManager = new DatabaseManager();
 
 export default dbManager;
