@@ -50,13 +50,6 @@ function getSessionExpiry(): string {
 }
 
 /**
- * 获取当前时间戳（ISO 格式）
- */
-function getCurrentTimestamp(): string {
-  return new Date().toISOString();
-}
-
-/**
  * 创建统一的错误响应
  */
 function createErrorResponse(
@@ -151,7 +144,7 @@ export async function GET(): Promise<NextResponse<PasswordStatusResponse | Error
     });
 
     return response;
-  } catch (error) {
+  } catch {
     return createErrorResponse('检查密码状态失败', 500, '检查密码状态失败');
   }
 }
@@ -195,7 +188,7 @@ export async function POST(
     setPasswordSetCookie(response);
 
     return response;
-  } catch (error) {
+  } catch {
     return createErrorResponse('设置密码失败', 500, '设置密码失败');
   }
 }
@@ -247,7 +240,7 @@ export async function PUT(
     setPasswordSetCookie(response);
 
     return response;
-  } catch (error) {
+  } catch {
     return createErrorResponse('验证密码失败', 500, '验证密码失败');
   }
 }
@@ -274,7 +267,7 @@ export async function DELETE(
     clearSessionCookie(response);
 
     return response;
-  } catch (error) {
+  } catch {
     return createErrorResponse('退出失败', 500, '退出失败');
   }
 }

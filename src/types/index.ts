@@ -64,16 +64,16 @@ export interface VerifyPasswordRequest {
 }
 
 // API 响应类型
-export interface PasswordStatusResponse {
+export interface PasswordStatusResponse extends Record<string, unknown> {
     hasPassword: boolean;
     message: string;
 }
 
-export interface PasswordOperationResponse {
+export interface PasswordOperationResponse extends Record<string, unknown> {
     message: string;
 }
 
-export interface ErrorResponse {
+export interface ErrorResponse extends Record<string, unknown> {
     error: string;
 }
 

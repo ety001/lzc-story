@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Plus, Edit, Trash2, Folder, Music, LogOut, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 import { useRouter } from 'next/navigation';
@@ -55,23 +55,7 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
     totalPages: 0
   });
 
-  useEffect(() => {
-    loadAlbums();
-  }, [currentPage]);
-
-  // 消息自动消失
-  useEffect(() => {
-    if (error || success) {
-      const timer = setTimeout(() => {
-        setError('');
-        setSuccess('');
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [error, success]);
-
-  const loadAlbums = async () => {
+  const loadAlbums = useCallback(async () => {
     try {
       const perPage = parseInt(process.env.NEXT_PUBLIC_ADMIN_ALBUMS_PER_PAGE || process.env.ADMIN_ALBUMS_PER_PAGE || '10');
       const response = await fetch(getApiUrl(`/api/albums?admin=true&page=${currentPage}&limit=${perPage}`));
@@ -93,7 +77,23 @@ export default function AdminInterface({ onBack }: AdminInterfaceProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage]);
+
+  useEffect(() => {
+    loadAlbums();
+  }, [loadAlbums]);
+
+  // 消息自动消失
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
 
   const loadFileSystem = async (path: string) => {
     try {
