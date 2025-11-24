@@ -42,6 +42,10 @@ function migrateDatabase() {
       db.exec('ALTER TABLE albums ADD COLUMN updated_at TEXT');
     }
 
+    if (!columnNames.includes('is_visible')) {
+      db.exec('ALTER TABLE albums ADD COLUMN is_visible INTEGER DEFAULT 0');
+    }
+
     // 检查并添加 audio_files 表的缺失列
     const audioFilesColumns = db.pragma('table_info(audio_files)') as Array<{ name: string }>;
     const audioFileColumnNames = audioFilesColumns.map(col => col.name);
@@ -79,6 +83,7 @@ function initializeDatabase() {
         name TEXT NOT NULL,
         path TEXT NOT NULL,
         audio_count INTEGER DEFAULT 0,
+        is_visible INTEGER DEFAULT 0,
         created_at TEXT,
         updated_at TEXT
       );

@@ -4,6 +4,7 @@ export interface Album {
     name: string;
     path: string;
     audio_count: number;
+    is_visible?: number; // 0 = 不显示, 1 = 显示
     created_at: string;
     updated_at: string;
 }
