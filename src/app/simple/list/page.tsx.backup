@@ -2,23 +2,6 @@ export default function SimpleListPage() {
   return (
     <div>
       <style>{`
-          /* 强制性布局重置 - 修复 WebView 74 显示问题 */
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-            min-height: auto !important;
-          }
-          body > div {
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
-            height: auto !important;
-            display: block !important;
-            flex: none !important;
-          }
-          
-          /* 原始样式 */
           * {
             margin: 0;
             padding: 0;
