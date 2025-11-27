@@ -1,55 +1,24 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-
-interface Album {
-  id: number;
-  name: string;
-  path: string;
-  audio_count: number;
-  is_visible?: number;
-  created_at: string;
-  updated_at?: string;
-}
-
 export default function SimpleListPage() {
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(function () {
-    loadAlbums();
-  }, []);
-
-  function loadAlbums() {
-    setLoading(true);
-    setError('');
-
-    fetch('/api/albums')
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error('加载失败');
-        }
-        return response.json();
-      })
-      .then(function (data) {
-        // eslint-disable-next-line no-var
-        var albumsList = Array.isArray(data) ? data : [];
-        setAlbums(albumsList);
-      })
-      .catch(function (err) {
-        console.error('加载专辑列表失败:', err);
-        setError('加载专辑列表失败');
-        setAlbums([]);
-      })
-      .finally(function () {
-        setLoading(false);
-      });
-  }
-
   return (
     <div>
       <style>{`
+          /* 强制性布局重置 - 修复 WebView 74 显示问题 */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: auto !important;
+          }
+          body > div {
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            height: auto !important;
+            display: block !important;
+            flex: none !important;
+          }
+          
+          /* 原始样式 */
           * {
             margin: 0;
             padding: 0;
@@ -141,36 +110,71 @@ export default function SimpleListPage() {
           <h1>懒猫故事机</h1>
         </div>
 
-        <div className="album-list">
-          {loading ? (
-            <div className="loading">加载中...</div>
-          ) : error ? (
-            <div className="error">{error}</div>
-          ) : albums.length === 0 ? (
-            <div className="empty">暂无专辑</div>
-          ) : (
-            albums.map(function (album) {
-              return (
-                <a
-                  key={album.id}
-                  href={'/simple/player/' + album.id}
-                  className="album-item"
-                  suppressHydrationWarning
-                >
-                  <div className="album-name">{album.name}</div>
-                  <div className="album-info">
-                    共 {album.audio_count} 个音频文件
-                  </div>
-                </a>
-              );
-            })
-          )}
+        <div className="album-list" id="albumList" suppressHydrationWarning>
+          <div className="loading" suppressHydrationWarning>加载中...</div>
         </div>
 
         <div className="nav-links">
           <a href="/simple/history" className="nav-link" suppressHydrationWarning>播放历史</a>
         </div>
       </div>
+
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              var albumList = document.getElementById('albumList');
+              
+              function loadAlbums() {
+                albumList.innerHTML = '<div class="loading">加载中...</div>';
+                
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/albums', true);
+                
+                xhr.onreadystatechange = function() {
+                  if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                      try {
+                        var data = JSON.parse(xhr.responseText);
+                        var albums = Array.isArray(data) ? data : [];
+                        
+                        if (albums.length === 0) {
+                          albumList.innerHTML = '<div class="empty">暂无专辑</div>';
+                        } else {
+                          var html = '';
+                          for (var i = 0; i < albums.length; i++) {
+                            var album = albums[i];
+                            html += '<a href="/simple/player/' + album.id + '" class="album-item">';
+                            html += '<div class="album-name">' + album.name + '</div>';
+                            html += '<div class="album-info">共 ' + album.audio_count + ' 个音频文件</div>';
+                            html += '</a>';
+                          }
+                          albumList.innerHTML = html;
+                        }
+                      } catch (err) {
+                        console.error('解析数据失败:', err);
+                        albumList.innerHTML = '<div class="error">加载专辑列表失败</div>';
+                      }
+                    } else {
+                      console.error('加载专辑列表失败:', xhr.status);
+                      albumList.innerHTML = '<div class="error">加载专辑列表失败</div>';
+                    }
+                  }
+                };
+                
+                xhr.onerror = function() {
+                  console.error('加载专辑列表网络错误');
+                  albumList.innerHTML = '<div class="error">加载专辑列表失败</div>';
+                };
+                
+                xhr.send();
+              }
+              
+              loadAlbums();
+            })();
+          `,
+        }}
+      />
     </div>
   );
 }
