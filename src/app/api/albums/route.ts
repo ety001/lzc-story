@@ -199,13 +199,70 @@ export async function PUT(request: NextRequest) {
     }
     db.update('albums', id, updates);
 
-    // 如果路径改变，删除旧的音频文件记录并重新扫描
-    if (albumPath && albumPath !== album.path) {
-      const audioFiles = db.get('audio_files', 'album_id = ?', [id.toString()]) as unknown as AudioFile[];
-      audioFiles.forEach((file: AudioFile) => {
-        db.delete('audio_files', file.id as number);
+    const normalizeDir = (p: string) => path.resolve(p);
+    const isPathInside = (rootDir: string, filePath: string) => {
+      const rel = path.relative(rootDir, filePath);
+      return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+    };
+    const inferOldRootFromFilepaths = (filepaths: string[]) => {
+      if (filepaths.length === 0) return null;
+      const dirPartsList = filepaths.map(fp => {
+        const dir = path.resolve(path.dirname(fp));
+        return dir.split(path.sep).filter(Boolean);
       });
-      scanAudioFiles(id, albumPath);
+      let prefix = dirPartsList[0]!;
+      for (const parts of dirPartsList.slice(1)) {
+        const len = Math.min(prefix.length, parts.length);
+        let i = 0;
+        for (; i < len; i++) {
+          if (prefix[i] !== parts[i]) break;
+        }
+        prefix = prefix.slice(0, i);
+        if (prefix.length === 0) break;
+      }
+      const root = path.parse(path.resolve(filepaths[0]!)).root;
+      const candidate = root + prefix.join(path.sep);
+      const normalized = path.resolve(candidate);
+      if (!path.isAbsolute(normalized)) return null;
+      if (normalized === root) return null;
+      return normalized;
+    };
+
+    // - 如果 albumPath 变化：用 album.path 作为 oldRoot 迁移
+    // - 如果 albumPath 未变化但发现 audio_files 仍不在新路径下：从 audio_files.filepath 推断 oldRoot 后迁移
+    // 迁移后仅补扫新增文件，避免破坏 play_history
+    if (albumPath) {
+      const newRoot = normalizeDir(albumPath);
+      const currentAlbumRoot = normalizeDir(album.path);
+      const audioFiles = db.get('audio_files', 'album_id = ?', [id.toString()]) as unknown as AudioFile[];
+      const staleFiles = audioFiles.filter(file => {
+        const fp = path.resolve(file.filepath);
+        return !isPathInside(newRoot, fp);
+      });
+
+      let oldRoot: string | null = null;
+      if (newRoot !== currentAlbumRoot) {
+        oldRoot = currentAlbumRoot;
+      } else if (staleFiles.length > 0) {
+        oldRoot = inferOldRootFromFilepaths(staleFiles.map(f => f.filepath));
+      }
+
+      if (oldRoot && oldRoot !== newRoot) {
+        for (const file of audioFiles) {
+          const currentPath = path.resolve(file.filepath);
+          if (isPathInside(newRoot, currentPath)) continue;
+          const rel = path.relative(oldRoot, currentPath);
+          if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+          const migrated = path.join(newRoot, rel);
+          db.update('audio_files', file.id as number, { filepath: migrated });
+        }
+      } else if (staleFiles.length > 0) {
+        console.warn(
+          `[albums.put] detected stale audio_files but cannot infer oldRoot (albumId=${id}, albumPath=${newRoot})`
+        );
+      }
+
+      await scanAudioFiles(id, newRoot, { onlyAddNew: true });
     }
 
     return NextResponse.json({ message: '专辑更新成功' });
@@ -303,33 +360,31 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// 扫描音频文件的函数
-async function scanAudioFiles(albumId: number, albumPath: string) {
+// 扫描音频文件的函数；onlyAddNew 为 true 时仅插入尚不存在的文件（用于专辑路径变更后补扫新文件）
+async function scanAudioFiles(
+  albumId: number,
+  albumPath: string,
+  options?: { onlyAddNew?: boolean }
+) {
   try {
     const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
-    const audioFiles: string[] = [];
+    const scannedPaths: string[] = [];
+    const onlyAddNew = options?.onlyAddNew ?? false;
 
     function scanDirectory(dirPath: string) {
       const files = fs.readdirSync(dirPath);
 
-      // 对文件名进行数字排序
       const sortedFiles = files.sort((a, b) => {
-        // 提取文件名中的数字部分进行排序
         const matchA = a.match(/\d+/);
         const matchB = b.match(/\d+/);
         const numA = parseInt(matchA ? matchA[0] : '0');
         const numB = parseInt(matchB ? matchB[0] : '0');
 
-        // 如果都有数字，按数字排序
         if (!isNaN(numA) && !isNaN(numB)) {
           return numA - numB;
         }
-
-        // 如果只有一个有数字，有数字的排在前面
         if (!isNaN(numA) && isNaN(numB)) return -1;
         if (isNaN(numA) && !isNaN(numB)) return 1;
-
-        // 如果都没有数字，按字母顺序排序
         return a.localeCompare(b);
       });
 
@@ -342,7 +397,7 @@ async function scanAudioFiles(albumId: number, albumPath: string) {
         } else if (stat.isFile()) {
           const ext = path.extname(file).toLowerCase();
           if (audioExtensions.includes(ext)) {
-            audioFiles.push(fullPath);
+            scannedPaths.push(fullPath);
           }
         }
       }
@@ -350,17 +405,35 @@ async function scanAudioFiles(albumId: number, albumPath: string) {
 
     scanDirectory(albumPath);
 
-    // 将音频文件信息保存到数据库
-    for (const filePath of audioFiles) {
+    // onlyAddNew 时用规范化路径比较，避免 path.join/path.resolve 等差异导致重复插入
+    let existingNormalizedPaths: Set<string> | null = null;
+    if (onlyAddNew) {
+      const existing = db.get('audio_files', 'album_id = ?', [albumId.toString()]) as unknown as AudioFile[];
+      existingNormalizedPaths = new Set(existing.map(f => path.resolve(f.filepath)));
+    }
+
+    let addedCount = 0;
+    const seenInThisScan = new Set<string>();
+    for (const filePath of scannedPaths) {
+      const normalizedPath = path.resolve(filePath);
+      if (onlyAddNew) {
+        if (existingNormalizedPaths!.has(normalizedPath) || seenInThisScan.has(normalizedPath)) continue;
+        seenInThisScan.add(normalizedPath);
+      }
       const filename = path.basename(filePath);
       db.insert('audio_files', {
         album_id: albumId,
         filename: filename,
-        filepath: filePath
+        filepath: normalizedPath
       });
+      addedCount += 1;
     }
 
-    console.log(`扫描完成，找到 ${audioFiles.length} 个音频文件`);
+    console.log(
+      onlyAddNew
+        ? `补扫完成，新增 ${addedCount} 个音频文件`
+        : `扫描完成，找到 ${scannedPaths.length} 个音频文件`
+    );
   } catch (error) {
     console.error('扫描音频文件失败:', error);
   }
