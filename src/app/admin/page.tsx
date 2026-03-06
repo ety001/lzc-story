@@ -20,6 +20,7 @@ export default function AdminPage() {
         // 调用 API 验证会话
         const response = await fetch(getApiUrl('/api/admin-password'), {
           method: 'HEAD', // 使用 HEAD 请求只检查状态
+          credentials: 'include', // 确保携带 Cookie
         });
 
         if (!response.ok) {

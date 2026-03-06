@@ -15,6 +15,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,14 +30,21 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ password }),
+        credentials: 'include', // 确保 Cookie 被正确存储
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        onPasswordVerified();
+        setSuccess(true);
+        setLoading(false);
+        // 短暂延迟，让用户看到成功提示，并确保 Cookie 已存储后再跳转
+        setTimeout(() => {
+          onPasswordVerified();
+        }, 500);
       } else {
         setError(data.error || '密码验证失败');
+        setLoading(false);
       }
     } catch {
       setError('网络错误，请重试');
@@ -94,12 +102,18 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
             </div>
           )}
 
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-green-600 text-sm">验证成功！正在跳转...</p>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
             className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? '验证中...' : '验证密码'}
+            {loading ? '验证中...' : success ? '正在跳转...' : '验证密码'}
           </button>
 
           {/* 忘记密码按钮 */}
