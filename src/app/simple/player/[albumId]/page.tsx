@@ -266,12 +266,17 @@ export default function SimplePlayerPage() {
                     return function() {
                       currentIndex = index;
                       loadTrack(0);
-                      if (isPlaying && audioPlayer) {
-                        setTimeout(function() {
-                          if (audioPlayer) {
-                            audioPlayer.play();
-                          }
-                        }, 100);
+                      if (audioPlayer) {
+                        var promise = audioPlayer.play();
+                        if (promise !== undefined) {
+                          promise.then(function() {
+                            isPlaying = true;
+                            if (playPauseBtn) playPauseBtn.textContent = '暂停';
+                            startPlayTimeTracking();
+                          }).catch(function(error) {
+                            console.error('播放失败:', error);
+                          });
+                        }
                       }
                     };
                   })(i);
