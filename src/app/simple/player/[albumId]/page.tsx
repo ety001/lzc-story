@@ -509,15 +509,17 @@ export default function SimplePlayerPage() {
                     updateProgress();
                   });
                   audioPlayer.addEventListener('ended', function() {
-                    isPlaying = false;
-                    if (playPauseBtn) playPauseBtn.textContent = '播放';
                     if (playTimeInterval) {
                       clearInterval(playTimeInterval);
                       playTimeInterval = null;
                     }
-                    // 自动播放下一首
+                    savePlayHistory();
+                    // 自动播放下一首（先调用 handleNext，此时 isPlaying 仍为 true）
                     if (currentIndex < audioFiles.length - 1) {
                       handleNext();
+                    } else {
+                      isPlaying = false;
+                      if (playPauseBtn) playPauseBtn.textContent = '播放';
                     }
                   });
                 }
@@ -535,6 +537,23 @@ export default function SimplePlayerPage() {
                 }
                 
                 loadTrack(restoreTime);
+
+                // 从历史记录进入时自动播放
+                if (historyItem) {
+                  audioPlayer.addEventListener('loadedmetadata', function onLoaded() {
+                    audioPlayer.removeEventListener('loadedmetadata', onLoaded);
+                    var promise = audioPlayer.play();
+                    if (promise !== undefined) {
+                      promise.then(function() {
+                        isPlaying = true;
+                        if (playPauseBtn) playPauseBtn.textContent = '暂停';
+                        startPlayTimeTracking();
+                      }).catch(function(error) {
+                        console.error('自动播放失败:', error);
+                      });
+                    }
+                  });
+                }
               }
               
               // 加载数据
