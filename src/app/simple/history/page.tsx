@@ -114,9 +114,12 @@ export default function SimpleHistoryPage() {
           <h1>播放历史</h1>
         </div>
 
-        <div className="history-list" id="historyList" suppressHydrationWarning>
-          <div className="loading" suppressHydrationWarning>加载中...</div>
-        </div>
+        <div
+          className="history-list"
+          id="historyList"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: '<div class="loading">加载中...</div>' }}
+        />
       </div>
 
       <script
@@ -124,6 +127,7 @@ export default function SimpleHistoryPage() {
           __html: `
             (function() {
               var historyList = document.getElementById('historyList');
+              var started = false;
               
               // 格式化时间
               function formatDateTime(dateString) {
@@ -166,6 +170,8 @@ export default function SimpleHistoryPage() {
               }
               
               function loadHistory() {
+                if (started || !historyList) return;
+                started = true;
                 historyList.innerHTML = '<div class="loading">加载中...</div>';
                 
                 var xhr = new XMLHttpRequest();
@@ -223,8 +229,16 @@ export default function SimpleHistoryPage() {
                 
                 xhr.send();
               }
-              
-              loadHistory();
+
+              // 延后到 load 之后，避免抢在 React hydration 前改 DOM（React #418）
+              function scheduleLoad() {
+                setTimeout(loadHistory, 0);
+              }
+              if (document.readyState === 'complete') {
+                scheduleLoad();
+              } else {
+                window.addEventListener('load', scheduleLoad);
+              }
             })();
           `,
         }}

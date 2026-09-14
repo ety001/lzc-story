@@ -89,7 +89,7 @@ export default function SimpleListPage() {
             color: #d32f2f;
           }
           .nav-links {
-            margin-top: 20px;
+            margin-bottom: 20px;
             text-align: center;
           }
           .nav-link {
@@ -110,13 +110,17 @@ export default function SimpleListPage() {
           <h1>懒猫故事机</h1>
         </div>
 
-        <div className="album-list" id="albumList" suppressHydrationWarning>
-          <div className="loading" suppressHydrationWarning>加载中...</div>
-        </div>
-
         <div className="nav-links">
           <a href="/simple/history" className="nav-link" suppressHydrationWarning>播放历史</a>
         </div>
+
+        {/* dangerouslySetInnerHTML：避免 React 对子节点做 hydration 比对 */}
+        <div
+          className="album-list"
+          id="albumList"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: '<div class="loading">加载中...</div>' }}
+        />
       </div>
 
       <script
@@ -124,8 +128,11 @@ export default function SimpleListPage() {
           __html: `
             (function() {
               var albumList = document.getElementById('albumList');
-              
+              var started = false;
+
               function loadAlbums() {
+                if (started || !albumList) return;
+                started = true;
                 albumList.innerHTML = '<div class="loading">加载中...</div>';
                 
                 var xhr = new XMLHttpRequest();
@@ -169,8 +176,17 @@ export default function SimpleListPage() {
                 
                 xhr.send();
               }
-              
-              loadAlbums();
+
+              // 内联脚本在 HTML 解析时就会执行，早于 React hydration。
+              // 若此时改 DOM，会触发 React #418，整树客户端重渲染后脚本不会再跑，列表永久停在「加载中」。
+              function scheduleLoad() {
+                setTimeout(loadAlbums, 0);
+              }
+              if (document.readyState === 'complete') {
+                scheduleLoad();
+              } else {
+                window.addEventListener('load', scheduleLoad);
+              }
             })();
           `,
         }}

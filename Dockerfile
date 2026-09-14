@@ -23,8 +23,8 @@ RUN npm install -g pnpm
 # 复制源代码
 COPY . .
 
-# 清理缓存和编译文件，确保 clean 状态
-RUN pnpm clear
+# 清理缓存和编译文件，确保 clean 状态（不用 pnpm clear：无 node_modules 时会先触发 install）
+RUN rm -rf .next out dist node_modules .turbo
 
 # 安装所有依赖（包括 devDependencies）
 RUN pnpm install --frozen-lockfile

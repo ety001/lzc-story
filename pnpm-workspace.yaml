@@ -1,5 +1,9 @@
-onlyBuiltDependencies:
-  - better-sqlite3
-  - '@tailwindcss/oxide'
-  - sharp
-  - unrs-resolver
+packages:
+  - '.'
+
+allowBuilds:
+  better-sqlite3: true
+  '@tailwindcss/oxide': true
+  sharp: true
+  unrs-resolver: true
+  esbuild: true

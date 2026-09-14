@@ -171,9 +171,12 @@ export default function SimplePlayerPage() {
         }
       `}</style>
 
-      <div className="container" id="mainContainer" suppressHydrationWarning>
-        <div className="loading" suppressHydrationWarning>加载中...</div>
-      </div>
+      <div
+        className="container"
+        id="mainContainer"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: '<div class="loading">加载中...</div>' }}
+      />
 
       <script
         dangerouslySetInnerHTML={{
@@ -556,7 +559,8 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 加载数据
+              // 加载数据（延后到 load 后，避免 React hydration #418）
+              function startPlayer() {
               var params = getUrlParams();
               if (!params.albumId) {
                 mainContainer.innerHTML = '<div class="error"><p>无效的专辑ID</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
@@ -680,6 +684,16 @@ export default function SimplePlayerPage() {
               };
               
               xhr.send();
+              }
+
+              function scheduleStart() {
+                setTimeout(startPlayer, 0);
+              }
+              if (document.readyState === 'complete') {
+                scheduleStart();
+              } else {
+                window.addEventListener('load', scheduleStart);
+              }
             })();
           `,
         }}
