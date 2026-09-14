@@ -89,7 +89,7 @@ export default function SimpleListPage() {
             color: #d32f2f;
           }
           .nav-links {
-            margin-top: 20px;
+            margin-bottom: 20px;
             text-align: center;
           }
           .nav-link {
@@ -110,12 +110,12 @@ export default function SimpleListPage() {
           <h1>懒猫故事机</h1>
         </div>
 
-        <div className="album-list" id="albumList" suppressHydrationWarning>
-          <div className="loading" suppressHydrationWarning>加载中...</div>
-        </div>
-
         <div className="nav-links">
           <a href="/simple/history" className="nav-link" suppressHydrationWarning>播放历史</a>
+        </div>
+
+        <div className="album-list" id="albumList" suppressHydrationWarning>
+          <div className="loading" suppressHydrationWarning>加载中...</div>
         </div>
       </div>
 
