@@ -23,10 +23,8 @@ RUN npm install -g pnpm
 # 复制源代码
 COPY . .
 
-# 清理缓存和编译文件，确保 clean 状态
-RUN pnpm clear
-
 # 安装所有依赖（包括 devDependencies）
+# 上下文已通过 .dockerignore 排除 node_modules/.next，无需再 pnpm clear
 RUN pnpm install --frozen-lockfile
 
 # 构建应用
