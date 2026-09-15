@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X } from 'lucide-react';
+import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X, Repeat1 } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 import type { AudioPlayerProps } from '@/types';
 
@@ -12,6 +12,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const [duration, setDuration] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [volume, setVolume] = useState(1);
+  const [isLooping, setIsLooping] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
@@ -19,6 +20,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const audioRef = useRef<HTMLAudioElement>(null);
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
+  const isLoopingRef = useRef(false);
   const historyProcessedRef = useRef(false);
 
   const currentFile = audioFiles[currentIndex];
@@ -164,6 +166,15 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       const updateTime = () => setCurrentTime(audio.currentTime);
       const updateDuration = () => setDuration(audio.duration);
       const handleEnded = () => {
+        // 单曲循环时由 audio.loop 处理，ended 通常不会触发；此处兜底
+        if (isLoopingRef.current) {
+          addToPlayHistory(audioRef.current?.currentTime || 0);
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+          }
+          return;
+        }
         if (currentIndex < audioFiles.length - 1) {
           // 记录当前歌曲的播放时间（歌曲播放完毕）
           addToPlayHistory(audioRef.current?.currentTime || 0);
@@ -199,6 +210,14 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  // 同步单曲循环状态到 audio 元素
+  useEffect(() => {
+    isLoopingRef.current = isLooping;
+    if (audioRef.current) {
+      audioRef.current.loop = isLooping;
+    }
+  }, [isLooping]);
 
   // 设置音频源
   useEffect(() => {
@@ -322,6 +341,10 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       console.log('Setting currentIndex to:', newIndex);
       setCurrentIndex(newIndex);
     }
+  };
+
+  const toggleLoop = () => {
+    setIsLooping((prev) => !prev);
   };
 
   const selectTrack = (index: number) => {
@@ -523,6 +546,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               onClick={playPrevious}
               disabled={currentIndex === 0}
               className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="上一首"
             >
               <SkipBack className="w-6 h-6 text-gray-700" />
             </button>
@@ -530,6 +554,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             <button
               onClick={handlePlay}
               className="p-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white"
+              title={isPlaying ? '暂停' : '播放'}
             >
               {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
             </button>
@@ -538,8 +563,22 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               onClick={playNext}
               disabled={currentIndex === audioFiles.length - 1}
               className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="下一首"
             >
               <SkipForward className="w-6 h-6 text-gray-700" />
+            </button>
+
+            <button
+              onClick={toggleLoop}
+              className={`p-3 rounded-full transition-colors ${
+                isLooping
+                  ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title={isLooping ? '关闭单曲循环' : '开启单曲循环'}
+              aria-pressed={isLooping}
+            >
+              <Repeat1 className="w-6 h-6" />
             </button>
           </div>
 

@@ -91,6 +91,10 @@ export default function SimplePlayerPage() {
           background-color: #ccc;
           cursor: not-allowed;
         }
+        .btn.active {
+          background-color: #2a5f8f;
+          box-shadow: inset 0 0 0 2px #1a3f5f;
+        }
         .progress-container {
           margin-bottom: 15px;
         }
@@ -238,6 +242,7 @@ export default function SimplePlayerPage() {
               var currentTime = 0;
               var duration = 0;
               var volume = 1;
+              var isLooping = false;
               var historyItem = null;
               var playTimeInterval = null;
               
@@ -248,6 +253,7 @@ export default function SimplePlayerPage() {
               var playPauseBtn = null;
               var prevBtn = null;
               var nextBtn = null;
+              var loopBtn = null;
               var progressBar = null;
               var volumeBar = null;
               var timeInfo = null;
@@ -309,6 +315,29 @@ export default function SimplePlayerPage() {
                 // 更新按钮状态
                 if (prevBtn) prevBtn.disabled = currentIndex === 0;
                 if (nextBtn) nextBtn.disabled = currentIndex === audioFiles.length - 1;
+                if (audioPlayer) audioPlayer.loop = isLooping;
+                updateLoopButton();
+              }
+              
+              // 更新单曲循环按钮样式
+              function updateLoopButton() {
+                if (!loopBtn) return;
+                if (isLooping) {
+                  loopBtn.className = 'btn active';
+                  loopBtn.textContent = '单曲循环:开';
+                } else {
+                  loopBtn.className = 'btn';
+                  loopBtn.textContent = '单曲循环';
+                }
+              }
+              
+              // 切换单曲循环
+              function toggleLoop() {
+                isLooping = !isLooping;
+                if (audioPlayer) {
+                  audioPlayer.loop = isLooping;
+                }
+                updateLoopButton();
               }
               
               // 更新进度条
@@ -447,6 +476,7 @@ export default function SimplePlayerPage() {
                 html += '<button class="btn" id="prevBtn" disabled>上一首</button>';
                 html += '<button class="btn" id="playPauseBtn">播放</button>';
                 html += '<button class="btn" id="nextBtn" disabled>下一首</button>';
+                html += '<button class="btn" id="loopBtn">单曲循环</button>';
                 html += '</div>';
                 html += '<div class="progress-container">';
                 html += '<label class="progress-label">播放进度</label>';
@@ -474,6 +504,7 @@ export default function SimplePlayerPage() {
                 playPauseBtn = document.getElementById('playPauseBtn');
                 prevBtn = document.getElementById('prevBtn');
                 nextBtn = document.getElementById('nextBtn');
+                loopBtn = document.getElementById('loopBtn');
                 progressBar = document.getElementById('progressBar');
                 volumeBar = document.getElementById('volumeBar');
                 timeInfo = document.getElementById('timeInfo');
@@ -488,6 +519,9 @@ export default function SimplePlayerPage() {
                 }
                 if (nextBtn) {
                   nextBtn.onclick = handleNext;
+                }
+                if (loopBtn) {
+                  loopBtn.onclick = toggleLoop;
                 }
                 if (progressBar && audioPlayer) {
                   progressBar.oninput = function() {
@@ -514,6 +548,23 @@ export default function SimplePlayerPage() {
                       playTimeInterval = null;
                     }
                     savePlayHistory();
+                    // 单曲循环：重新播放当前曲目
+                    if (isLooping) {
+                      audioPlayer.currentTime = 0;
+                      var promise = audioPlayer.play();
+                      if (promise !== undefined) {
+                        promise.then(function() {
+                          isPlaying = true;
+                          if (playPauseBtn) playPauseBtn.textContent = '暂停';
+                          startPlayTimeTracking();
+                        }).catch(function(error) {
+                          console.error('循环播放失败:', error);
+                          isPlaying = false;
+                          if (playPauseBtn) playPauseBtn.textContent = '播放';
+                        });
+                      }
+                      return;
+                    }
                     // 自动播放下一首（先调用 handleNext，此时 isPlaying 仍为 true）
                     if (currentIndex < audioFiles.length - 1) {
                       handleNext();
