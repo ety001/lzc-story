@@ -278,9 +278,18 @@ export default function AudioPlayer({
   }, [isLooping]);
 
   useEffect(() => {
-    if (!audioRef.current || !currentFile) return;
+    if (!audioRef.current) return;
 
     const audio = audioRef.current;
+
+    // 切歌后详情尚未 batch 回来：先停住旧曲，避免序号已变但继续播上一首
+    if (!currentFile) {
+      audio.pause();
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      return;
+    }
+
     const audioUrl = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
 
     audio.pause();

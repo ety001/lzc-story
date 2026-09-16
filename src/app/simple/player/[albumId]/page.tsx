@@ -432,8 +432,12 @@ export default function SimplePlayerPage() {
                 renderPlaylistWindow();
               }
               
-              function loadTrack(restoreTime) {
+              // autoPlayAfter：元数据就绪后自动播放（与 restoreTime 在同一回调，避免竞态）
+              function loadTrack(restoreTime, autoPlayAfter) {
                 if (currentIndex < 0 || currentIndex >= audioIds.length || !audioPlayer) return;
+
+                // 详情未就绪前先暂停，避免切歌后仍播上一首
+                audioPlayer.pause();
 
                 var preload = [];
                 for (var p = currentIndex - 3; p <= currentIndex + 3; p++) {
@@ -455,12 +459,26 @@ export default function SimplePlayerPage() {
                   }
                   
                   updatePlaylist();
-                  
-                  if (restoreTime && restoreTime > 0) {
-                    audioPlayer.addEventListener('loadedmetadata', function() {
+
+                  function onMetadataReady() {
+                    audioPlayer.removeEventListener('loadedmetadata', onMetadataReady);
+                    if (restoreTime && restoreTime > 0) {
                       audioPlayer.currentTime = restoreTime;
-                    }, { once: true });
+                    }
+                    if (autoPlayAfter) {
+                      var promise = audioPlayer.play();
+                      if (promise !== undefined) {
+                        promise.then(function() {
+                          isPlaying = true;
+                          if (playPauseBtn) playPauseBtn.textContent = '暂停';
+                          startPlayTimeTracking();
+                        }).catch(function(error) {
+                          console.error('自动播放失败:', error);
+                        });
+                      }
+                    }
                   }
+                  audioPlayer.addEventListener('loadedmetadata', onMetadataReady);
                   
                   if (prevBtn) prevBtn.disabled = currentIndex === 0;
                   if (nextBtn) nextBtn.disabled = currentIndex === audioIds.length - 1;
@@ -737,23 +755,8 @@ export default function SimplePlayerPage() {
                   }
                 }
                 
-                loadTrack(restoreTime);
-
-                if (historyItem) {
-                  audioPlayer.addEventListener('loadedmetadata', function onLoaded() {
-                    audioPlayer.removeEventListener('loadedmetadata', onLoaded);
-                    var promise = audioPlayer.play();
-                    if (promise !== undefined) {
-                      promise.then(function() {
-                        isPlaying = true;
-                        if (playPauseBtn) playPauseBtn.textContent = '暂停';
-                        startPlayTimeTracking();
-                      }).catch(function(error) {
-                        console.error('自动播放失败:', error);
-                      });
-                    }
-                  });
-                }
+                // 历史进入时：seek 与自动播放合并在 loadTrack 的同一 loadedmetadata 回调
+                loadTrack(restoreTime, !!historyItem);
               }
               
               function loadHistoryItem(audioFileId, callback) {
