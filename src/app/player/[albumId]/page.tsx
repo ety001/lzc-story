@@ -8,8 +8,22 @@ import type {
   Album,
   AudioFile,
   PlayHistoryItem,
+  AudioFilesListResponse,
   AudioFileResponse,
 } from '@/types';
+
+function toAudioFile(file: AudioFileResponse, albumName: string): AudioFile {
+  return {
+    id: parseInt(String(file.id), 10),
+    album_id: parseInt(String(file.album_id), 10),
+    filename: file.filename,
+    filepath: file.filepath,
+    duration: file.duration || 0,
+    album_name: file.album_name || albumName,
+    created_at: file.created_at || '',
+    updated_at: file.updated_at || file.created_at || '',
+  };
+}
 
 export default function AlbumPlayerPage() {
   const router = useRouter();
@@ -18,93 +32,77 @@ export default function AlbumPlayerPage() {
   const albumId = params.albumId as string;
 
   const [album, setAlbum] = useState<Album | null>(null);
-  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
+  const [audioIds, setAudioIds] = useState<number[]>([]);
+  const [initialFiles, setInitialFiles] = useState<AudioFile[]>([]);
+  const [windowThreshold, setWindowThreshold] = useState(50);
   const [loading, setLoading] = useState(true);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<PlayHistoryItem | null>(null);
 
   const loadAlbumInfo = useCallback(async () => {
-    try {
-      const albumResponse = await fetch(getApiUrl(`/api/albums/${albumId}`));
-
-      if (!albumResponse.ok) {
-        throw new Error('专辑不存在');
-      }
-
-      const currentAlbum = await albumResponse.json();
-      console.log('Current album:', currentAlbum);
-
-      // 转换数据类型以匹配AudioPlayer组件的期望
-      const convertedAlbum = {
-        ...currentAlbum,
-        id: parseInt(currentAlbum.id),
-        audio_count: parseInt(currentAlbum.audio_count.toString())
-      };
-      setAlbum(convertedAlbum);
-      return convertedAlbum;
-    } catch (error) {
-      console.error('加载专辑信息失败:', error);
-      setAlbum(null);
-      throw error;
+    const albumResponse = await fetch(getApiUrl(`/api/albums/${albumId}`));
+    if (!albumResponse.ok) {
+      throw new Error('专辑不存在');
     }
+    const currentAlbum = await albumResponse.json();
+    const convertedAlbum = {
+      ...currentAlbum,
+      id: parseInt(currentAlbum.id),
+      audio_count: parseInt(currentAlbum.audio_count.toString()),
+    };
+    setAlbum(convertedAlbum);
+    return convertedAlbum as Album;
   }, [albumId]);
 
   const loadAudioFiles = useCallback(async (albumName: string) => {
-    try {
-      const filesResponse = await fetch(getApiUrl(`/api/audio-files?albumId=${albumId}`));
-      const files = await filesResponse.json();
+    // 首屏按默认窗口阈值拉取；接口同时返回全量 audio_ids
+    const filesResponse = await fetch(
+      getApiUrl(`/api/audio-files?albumId=${albumId}&limit=50&offset=0`)
+    );
+    const data = (await filesResponse.json()) as AudioFilesListResponse;
 
-      if (Array.isArray(files)) {
-        // 转换音频文件数据类型
-        const convertedFiles = files.map((file: AudioFileResponse) => ({
-          id: parseInt(String(file.id)),
-          album_id: parseInt(String(file.album_id)),
-          filename: file.filename,
-          filepath: file.filepath,
-          duration: file.duration || 0,
-          album_name: albumName,
-          created_at: file.created_at || '',
-          updated_at: file.created_at || ''
-        }));
-        setAudioFiles(convertedFiles);
-      } else {
-        setAudioFiles([]);
-      }
-    } catch (error) {
-      console.error('加载音频文件失败:', error);
-      setAudioFiles([]);
-      throw error;
+    if (!data || !Array.isArray(data.audio_ids)) {
+      setAudioIds([]);
+      setInitialFiles([]);
+      return;
     }
+
+    setAudioIds(data.audio_ids.map((id) => parseInt(String(id), 10)));
+    setWindowThreshold(
+      typeof data.window_threshold === 'number' && data.window_threshold > 0
+        ? data.window_threshold
+        : 50
+    );
+    setInitialFiles(
+      (Array.isArray(data.items) ? data.items : []).map((file) => toAudioFile(file, albumName))
+    );
   }, [albumId]);
 
   const loadAlbumData = useCallback(async () => {
-    console.log('loadAlbumData called');
     try {
-      // 先加载专辑信息
       const albumInfo = await loadAlbumInfo();
-
-      // 然后加载音频文件
       await loadAudioFiles(albumInfo.name);
     } catch (error) {
       console.error('加载专辑数据失败:', error);
+      setAlbum(null);
+      setAudioIds([]);
+      setInitialFiles([]);
     } finally {
-      console.log('Setting loading to false');
       setLoading(false);
     }
   }, [loadAlbumInfo, loadAudioFiles]);
 
   const loadHistoryItem = useCallback(async (audioFileId: number) => {
     try {
-      const response = await fetch(getApiUrl(`/api/play-history?audioFileId=${audioFileId}&albumId=${albumId}`));
+      const response = await fetch(
+        getApiUrl(`/api/play-history?audioFileId=${audioFileId}&albumId=${albumId}`)
+      );
       const historyItem = await response.json();
-
       if (historyItem) {
-        // 转换历史记录数据类型
-        const convertedHistoryItem = {
+        setSelectedHistoryItem({
           ...historyItem,
           audio_file_id: parseInt(historyItem.audio_file_id),
-          album_id: parseInt(historyItem.album_id)
-        };
-        setSelectedHistoryItem(convertedHistoryItem);
+          album_id: parseInt(historyItem.album_id),
+        });
       } else {
         setSelectedHistoryItem(null);
       }
@@ -119,12 +117,11 @@ export default function AlbumPlayerPage() {
   }, [loadAlbumData]);
 
   useEffect(() => {
-    // 检查是否有历史记录参数
     const historyItemId = searchParams.get('historyItem');
     if (historyItemId && albumId) {
       loadHistoryItem(parseInt(historyItemId));
     }
-  }, [searchParams, albumId, loadHistoryItem]); // 只在搜索参数变化时执行
+  }, [searchParams, albumId, loadHistoryItem]);
 
   const handleBack = () => {
     router.push('/player');
@@ -141,7 +138,7 @@ export default function AlbumPlayerPage() {
     );
   }
 
-  if (!album || audioFiles.length === 0) {
+  if (!album || audioIds.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -160,7 +157,9 @@ export default function AlbumPlayerPage() {
   return (
     <AudioPlayer
       album={album}
-      audioFiles={audioFiles}
+      audioIds={audioIds}
+      initialFiles={initialFiles}
+      windowThreshold={windowThreshold}
       onBack={handleBack}
       selectedHistoryItem={selectedHistoryItem}
     />

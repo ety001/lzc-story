@@ -137,10 +137,34 @@ export default function SimplePlayerPage() {
           border-bottom: 1px solid #eee;
           font-weight: bold;
         }
+        .playlist-scroll {
+          max-height: 400px;
+          overflow-y: auto;
+          position: relative;
+          -webkit-overflow-scrolling: touch;
+        }
+        .playlist-spacer {
+          position: relative;
+          width: 100%;
+        }
+        .playlist-window {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+        }
         .playlist-item {
-          padding: 12px 20px;
+          height: 48px;
+          padding: 0 20px;
           border-bottom: 1px solid #eee;
           cursor: pointer;
+          box-sizing: border-box;
+          display: -webkit-box;
+          display: -webkit-flex;
+          display: flex;
+          -webkit-box-align: center;
+          -webkit-align-items: center;
+          align-items: center;
         }
         .playlist-item:hover {
           background-color: #f9f9f9;
@@ -153,6 +177,9 @@ export default function SimplePlayerPage() {
         }
         .playlist-item-name {
           font-size: 14px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .loading {
           text-align: center;
@@ -183,7 +210,11 @@ export default function SimplePlayerPage() {
         dangerouslySetInnerHTML={{
           __html: `
             (function() {
-              // 从 URL 获取参数
+              var ROW_HEIGHT = 48;
+              var WINDOW_SIZE = 50;
+              var BUFFER = 10;
+              var MAX_BATCH = 100;
+
               function getUrlParams() {
                 var path = window.location.pathname;
                 var search = window.location.search;
@@ -207,36 +238,27 @@ export default function SimplePlayerPage() {
                 };
               }
               
-              // 对音频文件进行排序（按文件名中的数字）
-              function sortAudioFiles(files) {
-                return files.slice().sort(function(a, b) {
-                  var matchA = a.filename.match(/\\d+/);
-                  var matchB = b.filename.match(/\\d+/);
-                  var numA = matchA ? parseInt(matchA[0], 10) : 0;
-                  var numB = matchB ? parseInt(matchB[0], 10) : 0;
-                  
-                  if (!isNaN(numA) && !isNaN(numB)) {
-                    return numA - numB;
-                  }
-                  
-                  if (!isNaN(numA) && isNaN(numB)) return -1;
-                  if (isNaN(numA) && !isNaN(numB)) return 1;
-                  
-                  return a.filename.localeCompare(b.filename);
-                });
-              }
-              
-              // 格式化时间
               function formatTime(seconds) {
                 if (isNaN(seconds) || seconds < 0) return '00:00';
                 var mins = Math.floor(seconds / 60);
                 var secs = Math.floor(seconds % 60);
                 return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
               }
+
+              function escapeHtml(text) {
+                return String(text)
+                  .replace(/&/g, '&amp;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;')
+                  .replace(/"/g, '&quot;');
+              }
               
-              // 全局状态
+              // 全局状态：全量 ID 骨架 + 详情缓存（对齐 multitune 车机窗口）
               var album = null;
-              var audioFiles = [];
+              var audioIds = [];
+              var fileCache = {};
+              var pendingIds = {};
+              var windowThreshold = 50;
               var currentIndex = 0;
               var isPlaying = false;
               var currentTime = 0;
@@ -245,8 +267,8 @@ export default function SimplePlayerPage() {
               var isLooping = false;
               var historyItem = null;
               var playTimeInterval = null;
+              var scrollTimer = null;
               
-              // DOM 元素
               var mainContainer = document.getElementById('mainContainer');
               var audioPlayer = null;
               var currentTrackEl = null;
@@ -257,20 +279,110 @@ export default function SimplePlayerPage() {
               var progressBar = null;
               var volumeBar = null;
               var timeInfo = null;
-              var playlistItems = null;
-              
-              // 更新播放列表
-              function updatePlaylist() {
-                if (!playlistItems) return;
-                
-                playlistItems.innerHTML = '';
-                for (var i = 0; i < audioFiles.length; i++) {
-                  var item = document.createElement('div');
-                  item.className = 'playlist-item' + (i === currentIndex ? ' active' : '');
-                  item.innerHTML = '<div class="playlist-item-name">' + audioFiles[i].filename + '</div>';
-                  item.onclick = (function(index) {
+              var playlistScroll = null;
+              var playlistWindow = null;
+
+              function getFile(index) {
+                if (index < 0 || index >= audioIds.length) return null;
+                return fileCache[audioIds[index]] || null;
+              }
+
+              function ensureFiles(ids, callback) {
+                var missing = [];
+                for (var i = 0; i < ids.length; i++) {
+                  var id = ids[i];
+                  if (id && !fileCache[id] && !pendingIds[id]) {
+                    missing.push(id);
+                    pendingIds[id] = true;
+                  }
+                }
+                if (missing.length === 0) {
+                  if (callback) callback();
+                  return;
+                }
+
+                var chunks = [];
+                for (var c = 0; c < missing.length; c += MAX_BATCH) {
+                  chunks.push(missing.slice(c, c + MAX_BATCH));
+                }
+
+                var done = 0;
+                function finishOne() {
+                  done++;
+                  if (done >= chunks.length && callback) callback();
+                }
+
+                for (var ci = 0; ci < chunks.length; ci++) {
+                  (function(chunk) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/audio-files/batch', true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.onreadystatechange = function() {
+                      if (xhr.readyState !== 4) return;
+                      for (var j = 0; j < chunk.length; j++) {
+                        delete pendingIds[chunk[j]];
+                      }
+                      if (xhr.status === 200) {
+                        try {
+                          var data = JSON.parse(xhr.responseText);
+                          var items = (data && data.items) ? data.items : [];
+                          for (var k = 0; k < items.length; k++) {
+                            fileCache[items[k].id] = items[k];
+                          }
+                        } catch (err) {
+                          console.error('解析批量音频失败:', err);
+                        }
+                      } else {
+                        console.error('批量加载音频失败:', xhr.status);
+                      }
+                      finishOne();
+                    };
+                    xhr.onerror = function() {
+                      for (var j = 0; j < chunk.length; j++) {
+                        delete pendingIds[chunk[j]];
+                      }
+                      console.error('批量加载音频网络错误');
+                      finishOne();
+                    };
+                    try {
+                      xhr.send(JSON.stringify({ ids: chunk }));
+                    } catch (err) {
+                      for (var j = 0; j < chunk.length; j++) {
+                        delete pendingIds[chunk[j]];
+                      }
+                      finishOne();
+                    }
+                  })(chunks[ci]);
+                }
+              }
+
+              function useVirtualPlaylist() {
+                return audioIds.length > windowThreshold;
+              }
+
+              function paintPlaylistWindow(startIndex, endIndex) {
+                if (!playlistWindow) return;
+                playlistWindow.style.webkitTransform = 'translateY(' + (startIndex * ROW_HEIGHT) + 'px)';
+                playlistWindow.style.transform = 'translateY(' + (startIndex * ROW_HEIGHT) + 'px)';
+
+                var html = '';
+                for (var i = startIndex; i < endIndex; i++) {
+                  var file = fileCache[audioIds[i]];
+                  var name = file ? file.filename : '加载中...';
+                  var activeClass = i === currentIndex ? ' active' : '';
+                  html += '<div class="playlist-item' + activeClass + '" data-index="' + i + '">';
+                  html += '<div class="playlist-item-name">' + escapeHtml(name) + '</div>';
+                  html += '</div>';
+                }
+                playlistWindow.innerHTML = html;
+
+                var items = playlistWindow.querySelectorAll('.playlist-item');
+                for (var n = 0; n < items.length; n++) {
+                  items[n].onclick = (function(el) {
                     return function() {
-                      currentIndex = index;
+                      var idx = parseInt(el.getAttribute('data-index'), 10);
+                      if (isNaN(idx)) return;
+                      currentIndex = idx;
                       loadTrack(0);
                       if (audioPlayer) {
                         var promise = audioPlayer.play();
@@ -285,41 +397,96 @@ export default function SimplePlayerPage() {
                         }
                       }
                     };
-                  })(i);
-                  playlistItems.appendChild(item);
+                  })(items[n]);
                 }
               }
-              
-              // 加载音频
-              function loadTrack(restoreTime) {
-                if (currentIndex < 0 || currentIndex >= audioFiles.length || !audioPlayer) return;
-                
-                var file = audioFiles[currentIndex];
-                var audioUrl = '/api/audio-stream?path=' + encodeURIComponent(file.filepath);
-                audioPlayer.src = audioUrl;
-                audioPlayer.volume = volume;
-                
-                if (currentTrackEl) {
-                  currentTrackEl.textContent = file.filename;
+
+              function renderPlaylistWindow() {
+                if (!playlistScroll || audioIds.length === 0) return;
+
+                if (!useVirtualPlaylist()) {
+                  ensureFiles(audioIds.slice(), function() {
+                    paintPlaylistWindow(0, audioIds.length);
+                    var spacer = document.getElementById('playlistSpacer');
+                    if (spacer) {
+                      spacer.style.height = (audioIds.length * ROW_HEIGHT) + 'px';
+                    }
+                  });
+                  return;
                 }
-                
-                updatePlaylist();
-                
-                // 如果需要恢复播放位置
-                if (restoreTime && restoreTime > 0) {
-                  audioPlayer.addEventListener('loadedmetadata', function() {
-                    audioPlayer.currentTime = restoreTime;
-                  }, { once: true });
+
+                var scrollTop = playlistScroll.scrollTop || 0;
+                var total = audioIds.length;
+                var startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER);
+                var endIndex = Math.min(total, startIndex + WINDOW_SIZE);
+                var needIds = [];
+                for (var i = startIndex; i < endIndex; i++) {
+                  needIds.push(audioIds[i]);
                 }
-                
-                // 更新按钮状态
-                if (prevBtn) prevBtn.disabled = currentIndex === 0;
-                if (nextBtn) nextBtn.disabled = currentIndex === audioFiles.length - 1;
-                if (audioPlayer) audioPlayer.loop = isLooping;
-                updateLoopButton();
+                ensureFiles(needIds, function() {
+                  paintPlaylistWindow(startIndex, endIndex);
+                });
+              }
+
+              function updatePlaylist() {
+                renderPlaylistWindow();
               }
               
-              // 更新单曲循环按钮样式
+              // autoPlayAfter：元数据就绪后自动播放（与 restoreTime 在同一回调，避免竞态）
+              function loadTrack(restoreTime, autoPlayAfter) {
+                if (currentIndex < 0 || currentIndex >= audioIds.length || !audioPlayer) return;
+
+                // 详情未就绪前先暂停，避免切歌后仍播上一首
+                audioPlayer.pause();
+
+                var preload = [];
+                for (var p = currentIndex - 3; p <= currentIndex + 3; p++) {
+                  if (p >= 0 && p < audioIds.length) {
+                    preload.push(audioIds[p]);
+                  }
+                }
+
+                ensureFiles(preload, function() {
+                  var file = getFile(currentIndex);
+                  if (!file || !audioPlayer) return;
+
+                  var audioUrl = '/api/audio-stream?path=' + encodeURIComponent(file.filepath);
+                  audioPlayer.src = audioUrl;
+                  audioPlayer.volume = volume;
+                  
+                  if (currentTrackEl) {
+                    currentTrackEl.textContent = file.filename;
+                  }
+                  
+                  updatePlaylist();
+
+                  function onMetadataReady() {
+                    audioPlayer.removeEventListener('loadedmetadata', onMetadataReady);
+                    if (restoreTime && restoreTime > 0) {
+                      audioPlayer.currentTime = restoreTime;
+                    }
+                    if (autoPlayAfter) {
+                      var promise = audioPlayer.play();
+                      if (promise !== undefined) {
+                        promise.then(function() {
+                          isPlaying = true;
+                          if (playPauseBtn) playPauseBtn.textContent = '暂停';
+                          startPlayTimeTracking();
+                        }).catch(function(error) {
+                          console.error('自动播放失败:', error);
+                        });
+                      }
+                    }
+                  }
+                  audioPlayer.addEventListener('loadedmetadata', onMetadataReady);
+                  
+                  if (prevBtn) prevBtn.disabled = currentIndex === 0;
+                  if (nextBtn) nextBtn.disabled = currentIndex === audioIds.length - 1;
+                  if (audioPlayer) audioPlayer.loop = isLooping;
+                  updateLoopButton();
+                });
+              }
+              
               function updateLoopButton() {
                 if (!loopBtn) return;
                 if (isLooping) {
@@ -331,7 +498,6 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 切换单曲循环
               function toggleLoop() {
                 isLooping = !isLooping;
                 if (audioPlayer) {
@@ -340,7 +506,6 @@ export default function SimplePlayerPage() {
                 updateLoopButton();
               }
               
-              // 更新进度条
               function updateProgress() {
                 if (!audioPlayer || !duration) return;
                 
@@ -359,10 +524,9 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 保存播放历史
               function savePlayHistory() {
-                if (audioFiles.length === 0 || !audioPlayer || !album) return;
-                var currentFile = audioFiles[currentIndex];
+                if (audioIds.length === 0 || !audioPlayer || !album) return;
+                var currentFile = getFile(currentIndex);
                 if (!currentFile) return;
                 
                 var playTime = Math.floor(audioPlayer.currentTime);
@@ -387,7 +551,6 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 开始跟踪播放时间
               function startPlayTimeTracking() {
                 if (playTimeInterval) {
                   clearInterval(playTimeInterval);
@@ -399,7 +562,6 @@ export default function SimplePlayerPage() {
                 }, 5000);
               }
               
-              // 播放/暂停
               function togglePlayPause() {
                 if (!audioPlayer) return;
                 
@@ -426,7 +588,6 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 上一首
               function handlePrev() {
                 if (currentIndex > 0) {
                   currentIndex--;
@@ -441,9 +602,8 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 下一首
               function handleNext() {
-                if (currentIndex < audioFiles.length - 1) {
+                if (currentIndex < audioIds.length - 1) {
                   currentIndex++;
                   loadTrack(0);
                   if (isPlaying && audioPlayer) {
@@ -456,9 +616,8 @@ export default function SimplePlayerPage() {
                 }
               }
               
-              // 渲染播放器 UI
               function renderPlayer() {
-                if (!album || audioFiles.length === 0) {
+                if (!album || audioIds.length === 0) {
                   mainContainer.innerHTML = '<div class="error"><p>该专辑没有音频文件</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
                   return;
                 }
@@ -466,7 +625,7 @@ export default function SimplePlayerPage() {
                 var html = '';
                 html += '<div class="header">';
                 html += '<a href="/simple/list" class="back-link">← 返回列表</a>';
-                html += '<h1>' + album.name + '</h1>';
+                html += '<h1>' + escapeHtml(album.name) + '</h1>';
                 html += '</div>';
                 
                 html += '<div class="player">';
@@ -492,13 +651,14 @@ export default function SimplePlayerPage() {
                 html += '</div>';
                 
                 html += '<div class="playlist">';
-                html += '<div class="playlist-header">播放列表</div>';
-                html += '<div id="playlistItems"></div>';
-                html += '</div>';
+                html += '<div class="playlist-header">播放列表 (' + audioIds.length + ')</div>';
+                html += '<div class="playlist-scroll" id="playlistScroll">';
+                html += '<div class="playlist-spacer" id="playlistSpacer" style="height:' + (audioIds.length * ROW_HEIGHT) + 'px">';
+                html += '<div class="playlist-window" id="playlistWindow"></div>';
+                html += '</div></div></div>';
                 
                 mainContainer.innerHTML = html;
                 
-                // 获取 DOM 元素引用
                 audioPlayer = document.getElementById('audioPlayer');
                 currentTrackEl = document.getElementById('currentTrack');
                 playPauseBtn = document.getElementById('playPauseBtn');
@@ -508,9 +668,9 @@ export default function SimplePlayerPage() {
                 progressBar = document.getElementById('progressBar');
                 volumeBar = document.getElementById('volumeBar');
                 timeInfo = document.getElementById('timeInfo');
-                playlistItems = document.getElementById('playlistItems');
+                playlistScroll = document.getElementById('playlistScroll');
+                playlistWindow = document.getElementById('playlistWindow');
                 
-                // 绑定事件
                 if (playPauseBtn) {
                   playPauseBtn.onclick = togglePlayPause;
                 }
@@ -536,6 +696,14 @@ export default function SimplePlayerPage() {
                     audioPlayer.volume = volume;
                   };
                 }
+                if (playlistScroll) {
+                  playlistScroll.onscroll = function() {
+                    if (scrollTimer) clearTimeout(scrollTimer);
+                    scrollTimer = setTimeout(function() {
+                      renderPlaylistWindow();
+                    }, 50);
+                  };
+                }
                 if (audioPlayer) {
                   audioPlayer.addEventListener('timeupdate', updateProgress);
                   audioPlayer.addEventListener('loadedmetadata', function() {
@@ -548,7 +716,6 @@ export default function SimplePlayerPage() {
                       playTimeInterval = null;
                     }
                     savePlayHistory();
-                    // 单曲循环：重新播放当前曲目
                     if (isLooping) {
                       audioPlayer.currentTime = 0;
                       var promise = audioPlayer.play();
@@ -565,8 +732,7 @@ export default function SimplePlayerPage() {
                       }
                       return;
                     }
-                    // 自动播放下一首（先调用 handleNext，此时 isPlaying 仍为 true）
-                    if (currentIndex < audioFiles.length - 1) {
+                    if (currentIndex < audioIds.length - 1) {
                       handleNext();
                     } else {
                       isPlaying = false;
@@ -575,52 +741,24 @@ export default function SimplePlayerPage() {
                   });
                 }
                 
-                // 初始化：如果有历史记录，找到对应的文件并恢复
                 var restoreTime = 0;
                 if (historyItem && historyItem.audio_file_id) {
-                  for (var i = 0; i < audioFiles.length; i++) {
-                    if (audioFiles[i].id === historyItem.audio_file_id) {
+                  for (var i = 0; i < audioIds.length; i++) {
+                    if (audioIds[i] === historyItem.audio_file_id) {
                       currentIndex = i;
                       restoreTime = historyItem.play_time || 0;
                       break;
                     }
                   }
+                  if (playlistScroll) {
+                    playlistScroll.scrollTop = Math.max(0, currentIndex * ROW_HEIGHT - ROW_HEIGHT * 2);
+                  }
                 }
                 
-                loadTrack(restoreTime);
-
-                // 从历史记录进入时自动播放
-                if (historyItem) {
-                  audioPlayer.addEventListener('loadedmetadata', function onLoaded() {
-                    audioPlayer.removeEventListener('loadedmetadata', onLoaded);
-                    var promise = audioPlayer.play();
-                    if (promise !== undefined) {
-                      promise.then(function() {
-                        isPlaying = true;
-                        if (playPauseBtn) playPauseBtn.textContent = '暂停';
-                        startPlayTimeTracking();
-                      }).catch(function(error) {
-                        console.error('自动播放失败:', error);
-                      });
-                    }
-                  });
-                }
+                // 历史进入时：seek 与自动播放合并在 loadTrack 的同一 loadedmetadata 回调
+                loadTrack(restoreTime, !!historyItem);
               }
               
-              // 加载数据
-              var params = getUrlParams();
-              if (!params.albumId) {
-                mainContainer.innerHTML = '<div class="error"><p>无效的专辑ID</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
-                return;
-              }
-              
-              var albumIdNum = parseInt(params.albumId, 10);
-              if (isNaN(albumIdNum)) {
-                mainContainer.innerHTML = '<div class="error"><p>无效的专辑ID</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
-                return;
-              }
-              
-              // 加载历史记录
               function loadHistoryItem(audioFileId, callback) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', '/api/play-history?audioFileId=' + audioFileId + '&albumId=' + albumIdNum, true);
@@ -653,17 +791,22 @@ export default function SimplePlayerPage() {
                 xhr.send();
               }
               
-              // 加载音频文件列表
               function loadAudioFiles(callback) {
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/api/audio-files?albumId=' + albumIdNum, true);
+                xhr.open('GET', '/api/audio-files?albumId=' + albumIdNum + '&limit=50&offset=0', true);
                 
                 xhr.onreadystatechange = function() {
                   if (xhr.readyState === 4) {
                     if (xhr.status === 200) {
                       try {
-                        var files = JSON.parse(xhr.responseText);
-                        audioFiles = sortAudioFiles(Array.isArray(files) ? files : []);
+                        var data = JSON.parse(xhr.responseText);
+                        audioIds = (data && data.audio_ids) ? data.audio_ids : [];
+                        windowThreshold = (data && data.window_threshold > 0) ? data.window_threshold : 50;
+                        fileCache = {};
+                        var items = (data && data.items) ? data.items : [];
+                        for (var i = 0; i < items.length; i++) {
+                          fileCache[items[i].id] = items[i];
+                        }
                         callback();
                       } catch (err) {
                         console.error('解析音频文件失败:', err);
@@ -684,7 +827,18 @@ export default function SimplePlayerPage() {
                 xhr.send();
               }
               
-              // 加载专辑信息
+              var params = getUrlParams();
+              if (!params.albumId) {
+                mainContainer.innerHTML = '<div class="error"><p>无效的专辑ID</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
+                return;
+              }
+              
+              var albumIdNum = parseInt(params.albumId, 10);
+              if (isNaN(albumIdNum)) {
+                mainContainer.innerHTML = '<div class="error"><p>无效的专辑ID</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
+                return;
+              }
+              
               var xhr = new XMLHttpRequest();
               xhr.open('GET', '/api/albums/' + albumIdNum, true);
               
@@ -694,12 +848,10 @@ export default function SimplePlayerPage() {
                     try {
                       album = JSON.parse(xhr.responseText);
                       
-                      // 加载音频文件列表
                       loadAudioFiles(function() {
-                        if (audioFiles.length === 0) {
+                        if (audioIds.length === 0) {
                           mainContainer.innerHTML = '<div class="error"><p>该专辑没有音频文件</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
                         } else {
-                          // 如果有历史记录，加载历史记录
                           if (params.historyItemId) {
                             var audioFileId = parseInt(params.historyItemId, 10);
                             if (!isNaN(audioFileId)) {

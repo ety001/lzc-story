@@ -3,9 +3,30 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X, Repeat1 } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
-import type { AudioPlayerProps } from '@/types';
+import { MAX_BATCH_IDS } from '@/lib/audio-list';
+import type { AudioFile, AudioPlayerProps, AudioFilesBatchResponse } from '@/types';
 
-export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = false, selectedHistoryItem }: AudioPlayerProps) {
+const PLAYLIST_ROW_HEIGHT = 52;
+const PLAYLIST_BUFFER = 8;
+const PLAYLIST_WINDOW_SIZE = 40;
+
+function seedCache(files: AudioFile[]): Record<number, AudioFile> {
+  const cache: Record<number, AudioFile> = {};
+  for (const file of files) {
+    cache[file.id] = file;
+  }
+  return cache;
+}
+
+export default function AudioPlayer({
+  album,
+  audioIds,
+  initialFiles,
+  windowThreshold,
+  onBack,
+  autoPlay = false,
+  selectedHistoryItem,
+}: AudioPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -17,55 +38,122 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   const [dragTime, setDragTime] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [fileCache, setFileCache] = useState<Record<number, AudioFile>>(() => seedCache(initialFiles));
+  const [windowStart, setWindowStart] = useState(0);
+  const [windowEnd, setWindowEnd] = useState(() =>
+    Math.min(audioIds.length, PLAYLIST_WINDOW_SIZE)
+  );
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(false);
   const historyProcessedRef = useRef(false);
+  const pendingIdsRef = useRef<Set<number>>(new Set());
+  const fileCacheRef = useRef(fileCache);
+  const playlistScrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentFile = audioFiles[currentIndex];
+  const totalCount = audioIds.length;
+  const useVirtualPlaylist = totalCount > windowThreshold;
+  const currentId = audioIds[currentIndex];
+  const currentFile = currentId != null ? fileCache[currentId] : undefined;
 
-  // 添加播放历史记录
-  const addToPlayHistory = useCallback(async (playTime?: number) => {
-    console.log('addToPlayHistory 被调用, playTime:', playTime, 'currentFile:', currentFile?.filename);
+  useEffect(() => {
+    fileCacheRef.current = fileCache;
+  }, [fileCache]);
 
-    if (currentFile) {
-      const timeToRecord = playTime ?? 0;
-      console.log('准备记录播放时间:', timeToRecord);
+  useEffect(() => {
+    setFileCache(seedCache(initialFiles));
+  }, [initialFiles]);
 
-      // 只有当播放时间大于0时才记录
-      if (timeToRecord > 0) {
-        try {
-          console.log('发送API请求更新播放历史...');
-          const response = await fetch(getApiUrl('/api/play-history'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              albumId: album.id,
-              audioFileId: currentFile.id,
-              playTime: timeToRecord,
-            }),
-          });
+  const ensureFiles = useCallback(async (ids: number[]) => {
+    const missing: number[] = [];
+    for (const id of ids) {
+      if (id == null) continue;
+      if (fileCacheRef.current[id] || pendingIdsRef.current.has(id)) continue;
+      missing.push(id);
+    }
+    if (missing.length === 0) return;
 
-          if (response.ok) {
-            console.log('播放历史更新成功');
-          } else {
-            console.error('播放历史更新失败:', response.status);
-          }
-        } catch (error) {
-          console.error('添加播放记录失败:', error);
+    for (const id of missing) {
+      pendingIdsRef.current.add(id);
+    }
+
+    try {
+      for (let i = 0; i < missing.length; i += MAX_BATCH_IDS) {
+        const chunk = missing.slice(i, i + MAX_BATCH_IDS);
+        const response = await fetch(getApiUrl('/api/audio-files/batch'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: chunk }),
+        });
+        if (!response.ok) {
+          console.error('批量加载音频详情失败:', response.status);
+          continue;
         }
-      } else {
-        console.log('播放时间为0，跳过记录');
+        const data = (await response.json()) as AudioFilesBatchResponse;
+        const items = Array.isArray(data.items) ? data.items : [];
+        setFileCache((prev) => {
+          const next = { ...prev };
+          for (const raw of items) {
+            const id = parseInt(String(raw.id), 10);
+            next[id] = {
+              id,
+              album_id: parseInt(String(raw.album_id), 10),
+              filename: raw.filename,
+              filepath: raw.filepath,
+              duration: raw.duration || 0,
+              album_name: raw.album_name || album.name,
+              created_at: raw.created_at || '',
+              updated_at: raw.updated_at || raw.created_at || '',
+            };
+          }
+          return next;
+        });
       }
-    } else {
-      console.log('没有当前文件，跳过记录');
+    } finally {
+      for (const id of missing) {
+        pendingIdsRef.current.delete(id);
+      }
+    }
+  }, [album.name]);
+
+  // 当前曲目及邻曲预加载
+  useEffect(() => {
+    if (totalCount === 0) return;
+    const preload: number[] = [];
+    for (let i = currentIndex - 3; i <= currentIndex + 3; i++) {
+      if (i >= 0 && i < totalCount) {
+        preload.push(audioIds[i]);
+      }
+    }
+    void ensureFiles(preload);
+  }, [currentIndex, audioIds, totalCount, ensureFiles]);
+
+  const addToPlayHistory = useCallback(async (playTime?: number) => {
+    if (!currentFile) return;
+    const timeToRecord = playTime ?? 0;
+    if (timeToRecord <= 0) return;
+
+    try {
+      const response = await fetch(getApiUrl('/api/play-history'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          albumId: album.id,
+          audioFileId: currentFile.id,
+          playTime: timeToRecord,
+        }),
+      });
+      if (!response.ok) {
+        console.error('播放历史更新失败:', response.status);
+      }
+    } catch (error) {
+      console.error('添加播放记录失败:', error);
     }
   }, [currentFile, album.id]);
 
-  // 停止定时记录播放时间
   const stopPlayTimeRecording = useCallback(() => {
     if (playTimeIntervalRef.current) {
       clearInterval(playTimeIntervalRef.current);
@@ -73,74 +161,51 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, []);
 
-  // 使用 useEffect 管理播放时间记录（定时器部分）
   useEffect(() => {
-    console.log('播放时间记录 useEffect 触发, isPlaying:', isPlaying);
-
     if (isPlaying) {
-      // 播放时创建5秒定时器，定时调用API更新历史记录
       playTimeIntervalRef.current = setInterval(() => {
         if (isPlayingRef.current && audioRef.current) {
           addToPlayHistory(audioRef.current.currentTime);
         }
-      }, 5000); // 每5秒记录一次
+      }, 5000);
     } else {
-      // 暂停时销毁定时器
       stopPlayTimeRecording();
     }
-
-    // 清理函数
     return () => {
       stopPlayTimeRecording();
     };
   }, [isPlaying, addToPlayHistory, stopPlayTimeRecording]);
 
-  // 处理从播放历史记录进入的情况
+  // 从播放历史定位曲目
   useEffect(() => {
-    if (selectedHistoryItem && audioFiles.length > 0 && !historyProcessedRef.current) {
-      const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
+    if (selectedHistoryItem && totalCount > 0 && !historyProcessedRef.current) {
+      const targetIndex = audioIds.findIndex((id) => id === selectedHistoryItem.audio_file_id);
       if (targetIndex !== -1 && targetIndex !== currentIndex) {
         setCurrentIndex(targetIndex);
       }
     }
-  }, [selectedHistoryItem, audioFiles, currentIndex]);
+  }, [selectedHistoryItem, audioIds, totalCount, currentIndex]);
 
-  // 处理播放历史的时间设置和自动播放
   useEffect(() => {
-    // 如果没有播放历史项或已经处理过，直接返回
-    if (!selectedHistoryItem || historyProcessedRef.current) {
-      return;
-    }
+    if (!selectedHistoryItem || historyProcessedRef.current) return;
+    if (totalCount === 0) return;
 
-    // 如果音频文件列表还没加载完成，等待
-    if (audioFiles.length === 0) {
-      return;
-    }
+    const targetIndex = audioIds.findIndex((id) => id === selectedHistoryItem.audio_file_id);
+    if (targetIndex !== currentIndex) return;
+    if (!currentFile) return;
 
-    const targetIndex = audioFiles.findIndex(file => file.id === selectedHistoryItem.audio_file_id);
-
-    // 如果目标索引与当前索引不匹配，等待索引更新
-    if (targetIndex !== currentIndex) {
-      return;
-    }
-
-    // 标记已处理，避免重复执行
     historyProcessedRef.current = true;
 
-    // 等待音频加载完成后再设置时间和播放
     const handleAudioReady = () => {
       if (audioRef.current && selectedHistoryItem.play_time && selectedHistoryItem.play_time > 0) {
         audioRef.current.currentTime = selectedHistoryItem.play_time;
         setCurrentTime(selectedHistoryItem.play_time);
       }
-
-      // 自动开始播放
       if (audioRef.current) {
         audioRef.current.play().then(() => {
           setIsPlaying(true);
           isPlayingRef.current = true;
         }).catch((error) => {
-          // 忽略自动播放被阻止的错误，这是正常的
           if (error.name !== 'NotAllowedError') {
             console.error('自动播放失败:', error);
           }
@@ -148,62 +213,56 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
       }
     };
 
-    // 监听音频加载完成事件
     if (audioRef.current) {
       const audio = audioRef.current;
       audio.addEventListener('canplay', handleAudioReady, { once: true });
-
       return () => {
         audio.removeEventListener('canplay', handleAudioReady);
       };
     }
-  }, [selectedHistoryItem, audioFiles, currentIndex]);
+  }, [selectedHistoryItem, audioIds, currentIndex, currentFile, totalCount]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      const audio = audioRef.current;
+    if (!audioRef.current) return;
+    const audio = audioRef.current;
 
-      const updateTime = () => setCurrentTime(audio.currentTime);
-      const updateDuration = () => setDuration(audio.duration);
-      const handleEnded = () => {
-        // 单曲循环时由 audio.loop 处理，ended 通常不会触发；此处兜底
-        if (isLoopingRef.current) {
-          addToPlayHistory(audioRef.current?.currentTime || 0);
-          if (audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => {});
-          }
-          return;
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const handleEnded = () => {
+      if (isLoopingRef.current) {
+        addToPlayHistory(audioRef.current?.currentTime || 0);
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {});
         }
-        if (currentIndex < audioFiles.length - 1) {
-          // 记录当前歌曲的播放时间（歌曲播放完毕）
-          addToPlayHistory(audioRef.current?.currentTime || 0);
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          // 记录最后一首歌曲的播放时间
-          addToPlayHistory(audioRef.current?.currentTime || 0);
-          setIsPlaying(false);
-          isPlayingRef.current = false;
-        }
-      };
-      const handleSeeking = () => setIsSeeking(true);
-      const handleSeeked = () => setIsSeeking(false);
+        return;
+      }
+      if (currentIndex < totalCount - 1) {
+        addToPlayHistory(audioRef.current?.currentTime || 0);
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        addToPlayHistory(audioRef.current?.currentTime || 0);
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+      }
+    };
+    const handleSeeking = () => setIsSeeking(true);
+    const handleSeeked = () => setIsSeeking(false);
 
-      audio.addEventListener('timeupdate', updateTime);
-      audio.addEventListener('loadedmetadata', updateDuration);
-      audio.addEventListener('ended', handleEnded);
-      audio.addEventListener('seeking', handleSeeking);
-      audio.addEventListener('seeked', handleSeeked);
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('seeking', handleSeeking);
+    audio.addEventListener('seeked', handleSeeked);
 
-      return () => {
-        audio.removeEventListener('timeupdate', updateTime);
-        audio.removeEventListener('loadedmetadata', updateDuration);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('seeking', handleSeeking);
-        audio.removeEventListener('seeked', handleSeeked);
-      };
-    }
-  }, [currentIndex, audioFiles, addToPlayHistory]);
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('seeking', handleSeeking);
+      audio.removeEventListener('seeked', handleSeeked);
+    };
+  }, [currentIndex, totalCount, addToPlayHistory]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -211,7 +270,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, [volume]);
 
-  // 同步单曲循环状态到 audio 元素
   useEffect(() => {
     isLoopingRef.current = isLooping;
     if (audioRef.current) {
@@ -219,127 +277,144 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     }
   }, [isLooping]);
 
-  // 设置音频源
   useEffect(() => {
-    console.log('Audio source useEffect triggered, currentIndex:', currentIndex, 'currentFile:', currentFile?.filename);
-    if (audioRef.current && currentFile) {
-      const audioUrl = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
-      console.log('Setting audio src to:', audioUrl);
+    if (!audioRef.current) return;
 
-      // 先暂停当前播放，避免 AbortError
-      audioRef.current.pause();
+    const audio = audioRef.current;
 
-      // 重置播放状态
+    // 切歌后详情尚未 batch 回来：先停住旧曲，避免序号已变但继续播上一首
+    if (!currentFile) {
+      audio.pause();
       setIsPlaying(false);
       isPlayingRef.current = false;
-
-      audioRef.current.src = audioUrl;
-
-      // 添加加载事件监听
-      const audio = audioRef.current;
-      const handleLoadStart = () => { };
-      const handleCanPlay = () => {
-        console.log('handleCanPlay triggered, auto-playing');
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            console.log('Auto-play successful');
-            setIsPlaying(true);
-            isPlayingRef.current = true;
-            // 播放时间记录由 useEffect 自动管理
-          }).catch((error) => {
-            // 忽略 AbortError 和 NotAllowedError，这是正常的
-            if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
-              console.error('自动播放失败:', error);
-            }
-          });
-        }
-      };
-      const handleError = (e: Event) => console.error('音频加载错误:', e);
-
-      audio.addEventListener('loadstart', handleLoadStart);
-      audio.addEventListener('canplay', handleCanPlay);
-      audio.addEventListener('error', handleError);
-
-      return () => {
-        audio.removeEventListener('loadstart', handleLoadStart);
-        audio.removeEventListener('canplay', handleCanPlay);
-        audio.removeEventListener('error', handleError);
-      };
+      return;
     }
-  }, [currentIndex, currentFile]);
 
-  // 处理初始自动播放（只在首次加载时）
-  useEffect(() => {
-    if (audioRef.current && currentFile && autoPlay && currentIndex === 0) {
-      const audio = audioRef.current;
-      const handleCanPlay = () => {
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            setIsPlaying(true);
-            isPlayingRef.current = true;
-          }).catch((error) => {
-            // 忽略 AbortError 和 NotAllowedError，这是正常的
-            if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
-              console.error('初始自动播放失败:', error);
-            }
-          });
-        }
-      };
+    const audioUrl = `/api/audio-stream?path=${encodeURIComponent(currentFile.filepath)}`;
 
-      audio.addEventListener('canplay', handleCanPlay, { once: true });
-      return () => {
-        audio.removeEventListener('canplay', handleCanPlay);
-      };
-    }
-  }, [autoPlay, currentFile, currentIndex]);
+    audio.pause();
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    audio.src = audioUrl;
 
-  const togglePlayPause = async () => {
-    console.log('togglePlayPause called, isPlaying:', isPlaying, 'isPlayingRef:', isPlayingRef.current);
-    if (audioRef.current) {
-      if (isPlaying) {
-        console.log('Pausing audio');
-        audioRef.current.pause();
-        setIsPlaying(false);
-        isPlayingRef.current = false;
-      } else {
-        console.log('Playing audio');
-        try {
-          await audioRef.current.play();
-          console.log('Play successful');
+    const handleCanPlay = () => {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
           setIsPlaying(true);
           isPlayingRef.current = true;
-        } catch (error: unknown) {
-          console.error('播放失败:', error);
-          // 忽略 AbortError，这是正常的
-          if (error instanceof Error && error.name !== 'AbortError') {
-            console.error('播放失败:', error);
+        }).catch((error) => {
+          if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+            console.error('自动播放失败:', error);
           }
+        });
+      }
+    };
+    const handleError = (e: Event) => console.error('音频加载错误:', e);
+
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('error', handleError);
+
+    return () => {
+      audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('error', handleError);
+    };
+  }, [currentIndex, currentFile]);
+
+  useEffect(() => {
+    if (!audioRef.current || !currentFile || !autoPlay || currentIndex !== 0) return;
+    const audio = audioRef.current;
+    const handleCanPlay = () => {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+        }).catch((error) => {
+          if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+            console.error('初始自动播放失败:', error);
+          }
+        });
+      }
+    };
+    audio.addEventListener('canplay', handleCanPlay, { once: true });
+    return () => {
+      audio.removeEventListener('canplay', handleCanPlay);
+    };
+  }, [autoPlay, currentFile, currentIndex]);
+
+  const updatePlaylistWindow = useCallback(() => {
+    const el = playlistScrollRef.current;
+    if (!el || !useVirtualPlaylist) return;
+
+    const scrollTop = el.scrollTop;
+    const startIndex = Math.max(0, Math.floor(scrollTop / PLAYLIST_ROW_HEIGHT) - PLAYLIST_BUFFER);
+    const endIndex = Math.min(totalCount, startIndex + PLAYLIST_WINDOW_SIZE);
+    setWindowStart(startIndex);
+    setWindowEnd(endIndex);
+
+    const needIds: number[] = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      needIds.push(audioIds[i]);
+    }
+    void ensureFiles(needIds);
+  }, [useVirtualPlaylist, totalCount, audioIds, ensureFiles]);
+
+  useEffect(() => {
+    if (!showPlaylist) return;
+    if (useVirtualPlaylist) {
+      // 打开列表时定位到当前曲附近
+      requestAnimationFrame(() => {
+        const el = playlistScrollRef.current;
+        if (el) {
+          el.scrollTop = Math.max(0, currentIndex * PLAYLIST_ROW_HEIGHT - PLAYLIST_ROW_HEIGHT * 2);
+        }
+        updatePlaylistWindow();
+      });
+    } else {
+      void ensureFiles(audioIds);
+      setWindowStart(0);
+      setWindowEnd(totalCount);
+    }
+  }, [showPlaylist, useVirtualPlaylist, currentIndex, updatePlaylistWindow, ensureFiles, audioIds, totalCount]);
+
+  const handlePlaylistScroll = () => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      updatePlaylistWindow();
+    }, 50);
+  };
+
+  const togglePlayPause = async () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+    } else {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+        isPlayingRef.current = true;
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('播放失败:', error);
         }
       }
     }
   };
 
   const playPrevious = () => {
-    console.log('playPrevious called, currentIndex:', currentIndex, 'isPlaying:', isPlayingRef.current);
     if (currentIndex > 0) {
-      // 记录当前歌曲的播放时间
       addToPlayHistory(audioRef.current?.currentTime || 0);
-      const newIndex = currentIndex - 1;
-      console.log('Setting currentIndex to:', newIndex);
-      setCurrentIndex(newIndex);
+      setCurrentIndex(currentIndex - 1);
     }
   };
 
   const playNext = () => {
-    console.log('playNext called, currentIndex:', currentIndex, 'audioFiles.length:', audioFiles.length, 'isPlaying:', isPlayingRef.current);
-    if (currentIndex < audioFiles.length - 1) {
-      // 记录当前歌曲的播放时间
+    if (currentIndex < totalCount - 1) {
       addToPlayHistory(audioRef.current?.currentTime || 0);
-      const newIndex = currentIndex + 1;
-      console.log('Setting currentIndex to:', newIndex);
-      setCurrentIndex(newIndex);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
@@ -348,8 +423,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
   };
 
   const selectTrack = (index: number) => {
-    console.log('selectTrack called, index:', index, 'currentIndex:', currentIndex, 'isPlaying:', isPlayingRef.current);
-    // 记录当前歌曲的播放时间
     addToPlayHistory(audioRef.current?.currentTime || 0);
     setCurrentIndex(index);
     setShowPlaylist(false);
@@ -365,138 +438,127 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
     await togglePlayPause();
   };
 
-  // 进度条拖拽处理
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!audioRef.current || !duration || hasDragged) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
-
     setIsSeeking(true);
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
   };
 
   const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
     setIsDragging(true);
     setHasDragged(false);
-    handleProgressClick(e);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    setDragTime(percentage * duration);
   };
 
   const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDragging || !duration) return;
-
     setHasDragged(true);
     const rect = e.currentTarget.getBoundingClientRect();
-    const moveX = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, moveX / rect.width));
-    const newTime = percentage * duration;
-
-    setDragTime(newTime);
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    setDragTime(percentage * duration);
   };
 
   const handleProgressMouseUp = () => {
-    if (isDragging && audioRef.current) {
+    if (isDragging && audioRef.current && hasDragged) {
       setIsSeeking(true);
       audioRef.current.currentTime = dragTime;
       setCurrentTime(dragTime);
     }
     setIsDragging(false);
-    // 延迟重置拖拽标志，避免立即触发点击事件
-    setTimeout(() => setHasDragged(false), 100);
+    setTimeout(() => setHasDragged(false), 10);
   };
 
   const handleProgressMouseLeave = () => {
-    setIsDragging(false);
+    if (isDragging) {
+      handleProgressMouseUp();
+    }
   };
 
-  // 触摸事件处理（移动设备支持）
   const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
     setIsDragging(true);
     setHasDragged(false);
-    const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
-    const percentage = touchX / rect.width;
-    const newTime = percentage * duration;
-
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-    }
+    const touchX = e.touches[0].clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, touchX / rect.width));
+    setDragTime(percentage * duration);
   };
 
   const handleProgressTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isDragging || !duration) return;
-
     setHasDragged(true);
-    const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
+    const touchX = e.touches[0].clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, touchX / rect.width));
-    const newTime = percentage * duration;
-
-    setDragTime(newTime);
+    setDragTime(percentage * duration);
   };
 
   const handleProgressTouchEnd = () => {
-    if (isDragging && audioRef.current) {
+    if (isDragging && audioRef.current && hasDragged) {
       setIsSeeking(true);
       audioRef.current.currentTime = dragTime;
       setCurrentTime(dragTime);
     }
     setIsDragging(false);
-    // 延迟重置拖拽标志，避免立即触发点击事件
-    setTimeout(() => setHasDragged(false), 100);
+    setTimeout(() => setHasDragged(false), 10);
   };
+
+  const visibleStart = useVirtualPlaylist ? windowStart : 0;
+  const visibleEnd = useVirtualPlaylist ? windowEnd : totalCount;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* 头部 */}
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
           <button
             onClick={onBack}
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="w-5 h-5 mx-auto" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1
-            className="text-xl font-bold text-gray-700 truncate max-w-xs"
-            title={album.name}
-          >
+          <h1 className="text-xl font-bold text-gray-700 truncate max-w-xs" title={album.name}>
             {album.name}
           </h1>
           <button
             onClick={() => setShowPlaylist(true)}
-            className="p-2 text-gray-600 hover:text-gray-900"
+            className="flex items-center text-gray-600 hover:text-gray-900"
+            title="播放列表"
           >
             <List className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 播放器主体 */}
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-auto">
-          {/* 专辑信息 */}
           <div className="text-center mb-8">
-            <div className={`w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-300 ${isPlaying ? 'animate-spin' : ''
-              }`} style={{
+            <div
+              className={`w-32 h-32 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 transition-transform duration-300 ${
+                isPlaying ? 'animate-spin' : ''
+              }`}
+              style={{
                 animationDuration: '10s',
-                animationPlayState: isPlaying ? 'running' : 'paused'
-              }}>
+                animationPlayState: isPlaying ? 'running' : 'paused',
+              }}
+            >
               <span className="text-4xl">🎵</span>
             </div>
             <h2 className="text-lg font-semibold text-gray-700 mb-1">
-              {currentFile?.filename || '未知文件'}
+              {currentFile?.filename || (currentId != null ? '加载中...' : '未知文件')}
             </h2>
             <p className="text-sm text-gray-600">
-              {currentIndex + 1} / {audioFiles.length}
+              {currentIndex + 1} / {totalCount}
             </p>
           </div>
 
-          {/* 进度条 */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>{formatTime(isDragging ? dragTime : currentTime)}</span>
@@ -517,20 +579,17 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
               <div
                 className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%`
+                  width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%`,
                 }}
               ></div>
-              {/* 拖拽指示器 - 合并loading效果 */}
               <div
-                className={`absolute top-1/2 transform -translate-y-1/2 w-4 h-4 rounded-full shadow-lg cursor-pointer transition-colors ${isSeeking
-                  ? 'bg-indigo-600 animate-pulse'
-                  : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
+                className={`absolute top-1/2 transform -translate-y-1/2 w-4 h-4 rounded-full shadow-lg cursor-pointer transition-colors ${
+                  isSeeking ? 'bg-indigo-600 animate-pulse' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
                 style={{
-                  left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)`
+                  left: `calc(${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}% - 8px)`,
                 }}
               >
-                {/* 在seeking时显示旋转效果 */}
                 {isSeeking && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-2 h-2 bg-white rounded-full animate-spin"></div>
@@ -540,7 +599,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             </div>
           </div>
 
-          {/* 控制按钮 */}
           <div className="flex items-center justify-center space-x-6 mb-6">
             <button
               onClick={playPrevious}
@@ -561,7 +619,7 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
 
             <button
               onClick={playNext}
-              disabled={currentIndex === audioFiles.length - 1}
+              disabled={currentIndex === totalCount - 1}
               className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               title="下一首"
             >
@@ -582,7 +640,6 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
             </button>
           </div>
 
-          {/* 音量控制 */}
           <div className="flex items-center space-x-3">
             <span className="text-sm text-gray-600">音量</span>
             <input
@@ -598,10 +655,8 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
           </div>
         </div>
 
-        {/* 隐藏的音频元素 */}
         <audio ref={audioRef} preload="metadata" />
 
-        {/* 播放列表 */}
         {showPlaylist && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-96 overflow-hidden flex flex-col">
@@ -614,28 +669,77 @@ export default function AudioPlayer({ album, audioFiles, onBack, autoPlay = fals
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="space-y-2">
-                  {audioFiles.map((file, index) => (
+              <div
+                ref={playlistScrollRef}
+                className="flex-1 overflow-y-auto"
+                onScroll={useVirtualPlaylist ? handlePlaylistScroll : undefined}
+              >
+                {useVirtualPlaylist ? (
+                  <div
+                    className="relative"
+                    style={{ height: totalCount * PLAYLIST_ROW_HEIGHT }}
+                  >
                     <div
-                      key={file.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${index === currentIndex
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'hover:bg-gray-50'
-                        }`}
-                      onClick={() => selectTrack(index)}
+                      className="absolute left-0 right-0"
+                      style={{
+                        transform: `translateY(${visibleStart * PLAYLIST_ROW_HEIGHT}px)`,
+                      }}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">
-                          {file.filename}
-                        </span>
-                        {index === currentIndex && isPlaying && (
-                          <span className="text-xs text-indigo-600">正在播放</span>
-                        )}
-                      </div>
+                      {Array.from({ length: Math.max(0, visibleEnd - visibleStart) }, (_, i) => {
+                        const index = visibleStart + i;
+                        const id = audioIds[index];
+                        const file = fileCache[id];
+                        return (
+                          <div
+                            key={id}
+                            className={`px-3 rounded-lg cursor-pointer transition-colors flex items-center ${
+                              index === currentIndex
+                                ? 'bg-indigo-100 text-indigo-700'
+                                : 'hover:bg-gray-50'
+                            }`}
+                            style={{ height: PLAYLIST_ROW_HEIGHT }}
+                            onClick={() => selectTrack(index)}
+                          >
+                            <div className="flex items-center justify-between w-full min-w-0">
+                              <span className="text-sm font-medium truncate">
+                                {file?.filename || '加载中...'}
+                              </span>
+                              {index === currentIndex && isPlaying && (
+                                <span className="text-xs text-indigo-600 ml-2 shrink-0">正在播放</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {audioIds.map((id, index) => {
+                      const file = fileCache[id];
+                      return (
+                        <div
+                          key={id}
+                          className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                            index === currentIndex
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => selectTrack(index)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium truncate">
+                              {file?.filename || '加载中...'}
+                            </span>
+                            {index === currentIndex && isPlaying && (
+                              <span className="text-xs text-indigo-600">正在播放</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
