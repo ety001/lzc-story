@@ -83,9 +83,25 @@ export interface AudioFileResponse {
     album_id: string | number;
     filename: string;
     filepath: string;
-    file_size: number;
+    file_size?: number;
     duration: number | null;
+    album_name?: string;
     created_at: string | null;
+    updated_at?: string;
+}
+
+/** 音频列表窗口化响应（对齐 multitune：全量 ID + 分页详情） */
+export interface AudioFilesListResponse {
+    items: AudioFileResponse[];
+    total: number;
+    audio_ids: number[];
+    offset: number;
+    limit: number;
+    window_threshold: number;
+}
+
+export interface AudioFilesBatchResponse {
+    items: AudioFileResponse[];
 }
 
 export interface PlayHistoryResponse {
@@ -119,7 +135,12 @@ export interface DatabaseTestResult {
 // 组件 Props 类型
 export interface AudioPlayerProps {
     album: Album;
-    audioFiles: AudioFile[];
+    /** 全量有序音频 ID（虚拟列表骨架） */
+    audioIds: number[];
+    /** 首屏已加载的详情，用于预热缓存 */
+    initialFiles: AudioFile[];
+    /** 超过该阈值时播放列表使用虚拟滚动 */
+    windowThreshold: number;
     onBack: () => void;
     autoPlay?: boolean;
     selectedHistoryItem?: {
