@@ -96,6 +96,30 @@ export function initMediaSession(callbacks: MediaSessionCallbacks): MediaSession
   return mode;
 }
 
+/** 页面离开时清空动作回调，避免卸载后仍响应硬件按键 */
+export function clearMediaSessionActions(): void {
+  const names = Object.keys(handlers);
+  handlers = {};
+
+  const mode = msMode();
+  if (mode === 'standard' && typeof navigator !== 'undefined' && navigator.mediaSession) {
+    for (const name of names) {
+      try {
+        navigator.mediaSession.setActionHandler(name as MediaSessionAction, null);
+      } catch {
+        // 该 action 不被支持，跳过
+      }
+    }
+  }
+  // lzc-bridge：handlers 已清空，事件回调会自然 no-op
+
+  try {
+    msSetPlaybackState('none');
+  } catch {
+    // 清理失败不影响页面卸载
+  }
+}
+
 export function msSetPlaybackState(state: MediaSessionPlaybackState | 'playing' | 'paused' | 'none'): void {
   try {
     const bridge = getLzcBridge();

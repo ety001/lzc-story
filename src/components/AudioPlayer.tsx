@@ -5,6 +5,7 @@ import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X, Repeat1 } from 
 import { getApiUrl } from '@/lib/api';
 import { MAX_BATCH_IDS } from '@/lib/audio-list';
 import {
+  clearMediaSessionActions,
   initMediaSession,
   msSetMetadata,
   msSetPlaybackState,
@@ -418,7 +419,10 @@ export default function AudioPlayer({
       }
     }, 5000);
 
-    return () => clearInterval(posTimer);
+    return () => {
+      clearInterval(posTimer);
+      clearMediaSessionActions();
+    };
   }, []);
 
   // 换歌时同步标题/专辑到系统媒体界面

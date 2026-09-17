@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
+  clearMediaSessionActions,
   initMediaSession,
   msSetPlaybackState,
   msSetPositionState,
@@ -115,5 +116,37 @@ describe('media-session', () => {
 
     msSetMetadata({ title: '故事' });
     expect(bridge.setMetadata).toHaveBeenCalled();
+  });
+
+  it('clearMediaSessionActions 清空标准 MediaSession 动作并置 none', () => {
+    const setActionHandler = vi.fn();
+    const mediaSession = {
+      setActionHandler,
+      playbackState: 'playing' as MediaSessionPlaybackState,
+      setPositionState: vi.fn(),
+      metadata: null,
+    };
+    Object.defineProperty(navigator, 'mediaSession', {
+      configurable: true,
+      value: mediaSession,
+    });
+
+    initMediaSession({
+      play: vi.fn(),
+      pause: vi.fn(),
+      next: vi.fn(),
+      prev: vi.fn(),
+      seekBy: vi.fn(),
+      seekTo: vi.fn(),
+    });
+    setActionHandler.mockClear();
+
+    clearMediaSessionActions();
+    expect(setActionHandler).toHaveBeenCalledWith('play', null);
+    expect(mediaSession.playbackState).toBe('none');
+
+    if (originalMediaSession) {
+      Object.defineProperty(navigator, 'mediaSession', originalMediaSession);
+    }
   });
 });

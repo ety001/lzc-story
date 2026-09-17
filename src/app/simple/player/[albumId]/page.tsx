@@ -850,8 +850,11 @@ export default function SimplePlayerPage() {
                   audioPlayer.addEventListener('play', function() {
                     msSetPlaybackState('playing');
                   });
+                  // loadTrack 换源会 pause，但 isPlaying 仍可能为 true；勿把媒体会话打成 paused
                   audioPlayer.addEventListener('pause', function() {
-                    msSetPlaybackState('paused');
+                    if (!isPlaying) {
+                      msSetPlaybackState('paused');
+                    }
                   });
                   audioPlayer.addEventListener('ended', function() {
                     if (playTimeInterval) {
