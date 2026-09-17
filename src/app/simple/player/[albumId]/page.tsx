@@ -639,6 +639,38 @@ export default function SimplePlayerPage() {
                   audioPlayer.loop = isLooping;
                 }
                 updateLoopButton();
+                saveLoopSetting(isLooping);
+              }
+
+              function loadLoopSetting(callback) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/player-settings?_t=' + Date.now(), true);
+                xhr.onreadystatechange = function() {
+                  if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                      try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data && data.loop === true) {
+                          isLooping = true;
+                        }
+                      } catch (err) {
+                        console.error('解析循环设置失败:', err);
+                      }
+                    }
+                    if (callback) callback();
+                  }
+                };
+                xhr.onerror = function() {
+                  if (callback) callback();
+                };
+                xhr.send();
+              }
+
+              function saveLoopSetting(loop) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('PUT', '/api/player-settings', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.send(JSON.stringify({ loop: !!loop }));
               }
               
               function updateProgress() {
@@ -819,6 +851,10 @@ export default function SimplePlayerPage() {
                 }
                 if (loopBtn) {
                   loopBtn.onclick = toggleLoop;
+                  updateLoopButton();
+                  if (audioPlayer) {
+                    audioPlayer.loop = isLooping;
+                  }
                 }
                 if (progressBar && audioPlayer) {
                   progressBar.oninput = function() {
@@ -1002,17 +1038,20 @@ export default function SimplePlayerPage() {
                         if (audioIds.length === 0) {
                           mainContainer.innerHTML = '<div class="error"><p>该专辑没有音频文件</p><a href="/simple/list" class="back-link-btn">返回列表</a></div>';
                         } else {
+                          var startPlayer = function() {
+                            loadLoopSetting(function() {
+                              renderPlayer();
+                            });
+                          };
                           if (params.historyItemId) {
                             var audioFileId = parseInt(params.historyItemId, 10);
                             if (!isNaN(audioFileId)) {
-                              loadHistoryItem(audioFileId, function() {
-                                renderPlayer();
-                              });
+                              loadHistoryItem(audioFileId, startPlayer);
                             } else {
-                              renderPlayer();
+                              startPlayer();
                             }
                           } else {
-                            renderPlayer();
+                            startPlayer();
                           }
                         }
                       });
