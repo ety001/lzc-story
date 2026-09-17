@@ -55,6 +55,8 @@ export default function AudioPlayer({
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(false);
+  /** 用户已手动切换循环时，忽略随后返回的服务端旧值 */
+  const loopUserOverrideRef = useRef(false);
   const historyProcessedRef = useRef(false);
   const pendingIdsRef = useRef<Set<number>>(new Set());
   const fileCacheRef = useRef(fileCache);
@@ -308,7 +310,11 @@ export default function AudioPlayer({
         const response = await fetch(getApiUrl('/api/player-settings'));
         if (!response.ok) return;
         const data = (await response.json()) as PlayerSettings;
-        if (!cancelled && typeof data.loop === 'boolean') {
+        if (
+          !cancelled &&
+          !loopUserOverrideRef.current &&
+          typeof data.loop === 'boolean'
+        ) {
           setIsLooping(data.loop);
         }
       } catch (error) {
@@ -546,6 +552,7 @@ export default function AudioPlayer({
   };
 
   const toggleLoop = () => {
+    loopUserOverrideRef.current = true;
     setIsLooping((prev) => {
       const next = !prev;
       fetch(getApiUrl('/api/player-settings'), {
