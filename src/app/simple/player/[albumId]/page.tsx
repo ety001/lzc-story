@@ -281,6 +281,138 @@ export default function SimplePlayerPage() {
               var timeInfo = null;
               var playlistScroll = null;
               var playlistWindow = null;
+              var msPosTimer = null;
+              var msHandlers = {};
+              var msEventBound = false;
+
+              // 媒体会话通道：lzc-bridge = 懒猫 WebShell 原生桥；standard = 浏览器原生 API；none = 无
+              function msMode() {
+                if (typeof lzc_media_session !== 'undefined') { return 'lzc-bridge'; }
+                if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) { return 'standard'; }
+                return 'none';
+              }
+
+              function msSetPlaybackState(state) {
+                try {
+                  if (msMode() === 'lzc-bridge') {
+                    lzc_media_session.setPlaybackState(state);
+                  } else if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = state;
+                  }
+                } catch (e) {}
+              }
+
+              function msSetPositionState(dur, pos, rate) {
+                try {
+                  if (msMode() === 'lzc-bridge') {
+                    lzc_media_session.setPositionState(JSON.stringify({
+                      duration: dur, position: pos, playbackRate: rate
+                    }));
+                  } else if (typeof navigator !== 'undefined' && 'mediaSession' in navigator &&
+                    typeof navigator.mediaSession.setPositionState === 'function') {
+                    navigator.mediaSession.setPositionState({
+                      duration: dur, position: pos, playbackRate: rate
+                    });
+                  }
+                } catch (e) {}
+              }
+
+              function msSetMetadata(file) {
+                var mode = msMode();
+                if (mode === 'none') { return; }
+                var meta = {
+                  title: (file && file.filename) || '未知故事',
+                  artist: (file && file.album_name) || (album && album.name) || '',
+                  album: (album && album.name) || '懒猫故事机'
+                };
+                try {
+                  if (mode === 'lzc-bridge') {
+                    lzc_media_session.setMetadata(JSON.stringify(meta));
+                  } else if (typeof MediaMetadata !== 'undefined') {
+                    navigator.mediaSession.metadata = new MediaMetadata(meta);
+                  }
+                } catch (e) {}
+              }
+
+              function seekBy(delta, absolute) {
+                if (!audioPlayer) return;
+                try {
+                  if (typeof absolute === 'number') {
+                    var maxA = audioPlayer.duration || absolute;
+                    audioPlayer.currentTime = Math.max(0, Math.min(absolute, maxA));
+                  } else {
+                    var maxD = audioPlayer.duration || (audioPlayer.currentTime + delta);
+                    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.currentTime + delta, maxD));
+                  }
+                } catch (e) {}
+              }
+
+              function pauseOnly() {
+                if (!audioPlayer) return;
+                try {
+                  audioPlayer.pause();
+                  isPlaying = false;
+                  if (playPauseBtn) playPauseBtn.textContent = '播放';
+                  if (playTimeInterval) {
+                    clearInterval(playTimeInterval);
+                    playTimeInterval = null;
+                    savePlayHistory();
+                  }
+                  msSetPlaybackState('paused');
+                } catch (e) {}
+              }
+
+              // 媒体会话接入：优先懒猫桥，其次浏览器原生 MediaSession
+              function initMediaSession() {
+                var mode = msMode();
+                if (mode === 'none') { return; }
+
+                msHandlers = {
+                  play: function() {
+                    if (!isPlaying) { togglePlayPause(); }
+                  },
+                  pause: function() { pauseOnly(); },
+                  nexttrack: function() { handleNext(); },
+                  previoustrack: function() { handlePrev(); },
+                  seekforward: function() { seekBy(10); },
+                  seekbackward: function() { seekBy(-10); },
+                  seekto: function(data) {
+                    var t = data && typeof data.seekTime === 'number' ? data.seekTime : null;
+                    if (t !== null) { seekBy(null, t); }
+                  },
+                  stop: function() { pauseOnly(); }
+                };
+
+                if (!msEventBound) {
+                  msEventBound = true;
+                  window.addEventListener('lzc_media_session_event', function(e) {
+                    var detail = (e && e.detail) || {};
+                    var fn = msHandlers[detail.eventType];
+                    if (fn) { fn(detail.data); }
+                  });
+                }
+
+                for (var name in msHandlers) {
+                  if (Object.prototype.hasOwnProperty.call(msHandlers, name)) {
+                    try {
+                      if (mode === 'lzc-bridge') {
+                        lzc_media_session.setActionHandler(name);
+                      } else {
+                        navigator.mediaSession.setActionHandler(name, msHandlers[name]);
+                      }
+                    } catch (err) {
+                      // 该 action 不被支持，跳过
+                    }
+                  }
+                }
+
+                if (msPosTimer) { clearInterval(msPosTimer); }
+                msPosTimer = setInterval(function() {
+                  if (audioPlayer && audioPlayer.duration && !isNaN(audioPlayer.duration)) {
+                    msSetPositionState(audioPlayer.duration, audioPlayer.currentTime, audioPlayer.playbackRate || 1);
+                  }
+                }, 5000);
+              }
 
               function getFile(index) {
                 if (index < 0 || index >= audioIds.length) return null;
@@ -457,6 +589,8 @@ export default function SimplePlayerPage() {
                   if (currentTrackEl) {
                     currentTrackEl.textContent = file.filename;
                   }
+
+                  msSetMetadata(file);
                   
                   updatePlaylist();
 
@@ -472,6 +606,7 @@ export default function SimplePlayerPage() {
                           isPlaying = true;
                           if (playPauseBtn) playPauseBtn.textContent = '暂停';
                           startPlayTimeTracking();
+                          msSetPlaybackState('playing');
                         }).catch(function(error) {
                           console.error('自动播放失败:', error);
                         });
@@ -574,6 +709,7 @@ export default function SimplePlayerPage() {
                     playTimeInterval = null;
                     savePlayHistory();
                   }
+                  msSetPlaybackState('paused');
                 } else {
                   var promise = audioPlayer.play();
                   if (promise !== undefined) {
@@ -581,6 +717,7 @@ export default function SimplePlayerPage() {
                       isPlaying = true;
                       if (playPauseBtn) playPauseBtn.textContent = '暂停';
                       startPlayTimeTracking();
+                      msSetPlaybackState('playing');
                     }).catch(function(error) {
                       console.error('播放失败:', error);
                     });
@@ -710,6 +847,15 @@ export default function SimplePlayerPage() {
                     duration = audioPlayer.duration;
                     updateProgress();
                   });
+                  audioPlayer.addEventListener('play', function() {
+                    msSetPlaybackState('playing');
+                  });
+                  // loadTrack 换源会 pause，但 isPlaying 仍可能为 true；勿把媒体会话打成 paused
+                  audioPlayer.addEventListener('pause', function() {
+                    if (!isPlaying) {
+                      msSetPlaybackState('paused');
+                    }
+                  });
                   audioPlayer.addEventListener('ended', function() {
                     if (playTimeInterval) {
                       clearInterval(playTimeInterval);
@@ -724,10 +870,12 @@ export default function SimplePlayerPage() {
                           isPlaying = true;
                           if (playPauseBtn) playPauseBtn.textContent = '暂停';
                           startPlayTimeTracking();
+                          msSetPlaybackState('playing');
                         }).catch(function(error) {
                           console.error('循环播放失败:', error);
                           isPlaying = false;
                           if (playPauseBtn) playPauseBtn.textContent = '播放';
+                          msSetPlaybackState('paused');
                         });
                       }
                       return;
@@ -737,6 +885,7 @@ export default function SimplePlayerPage() {
                     } else {
                       isPlaying = false;
                       if (playPauseBtn) playPauseBtn.textContent = '播放';
+                      msSetPlaybackState('paused');
                     }
                   });
                 }
@@ -757,6 +906,7 @@ export default function SimplePlayerPage() {
                 
                 // 历史进入时：seek 与自动播放合并在 loadTrack 的同一 loadedmetadata 回调
                 loadTrack(restoreTime, !!historyItem);
+                initMediaSession();
               }
               
               function loadHistoryItem(audioFileId, callback) {
