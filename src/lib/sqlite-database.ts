@@ -134,6 +134,11 @@ function initializeDatabase() {
         expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT
+      );
     `);
     console.log('SQLite数据库初始化完成');
 
@@ -384,6 +389,46 @@ class DatabaseManager {
       this.executeStatement('DELETE FROM admin_sessions WHERE expires_at <= ?', [now]);
     } catch (error) {
       console.error('清理过期会话失败:', error);
+    }
+  }
+
+  // ==================== 应用设置 ====================
+
+  /**
+   * 读取应用设置
+   * @param key 设置键
+   * @returns 设置值，不存在则返回 null
+   */
+  getSetting(key: string): string | null {
+    ensureDatabaseInitialized();
+    try {
+      const rows = this.executeSQL<{ value: string }>(
+        'SELECT value FROM app_settings WHERE key = ? LIMIT 1',
+        [key]
+      );
+      return rows.length > 0 ? rows[0].value : null;
+    } catch (error) {
+      console.error('读取设置失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 写入应用设置（存在则更新）
+   * @param key 设置键
+   * @param value 设置值
+   */
+  setSetting(key: string, value: string): void {
+    ensureDatabaseInitialized();
+    try {
+      this.executeStatement(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        [key, value, getCurrentTimestamp()]
+      );
+    } catch (error) {
+      console.error('写入设置失败:', error);
+      throw error;
     }
   }
 }

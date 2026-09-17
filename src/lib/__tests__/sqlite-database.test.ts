@@ -130,6 +130,22 @@ class TestDatabaseManager {
         }
     }
 
+    getSetting(key: string): string | null {
+        const rows = this.executeSQL<{ value: string }>(
+            'SELECT value FROM app_settings WHERE key = ? LIMIT 1',
+            [key]
+        );
+        return rows.length > 0 ? rows[0].value : null;
+    }
+
+    setSetting(key: string, value: string): void {
+        this.executeStatement(
+            `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [key, value, new Date().toISOString()]
+        );
+    }
+
     // 关闭数据库连接
     close() {
         this.db.close();
@@ -162,6 +178,14 @@ describe('SQLite Database Manager', () => {
         filepath TEXT NOT NULL,
         created_at TEXT,
         FOREIGN KEY (album_id) REFERENCES test_albums (id)
+      )
+    `);
+
+        testDb.executeStatement(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT
       )
     `);
     });
@@ -311,6 +335,26 @@ describe('SQLite Database Manager', () => {
         it('应该返回0当没有匹配记录时', () => {
             const deletedCount = testDb.deleteMany('test_albums', 'id = ?', [999]);
             expect(deletedCount).toBe(0);
+        });
+    });
+
+    describe('应用设置 app_settings', () => {
+        it('不存在的键应返回 null', () => {
+            expect(testDb.getSetting('single_loop')).toBeNull();
+        });
+
+        it('应写入并读取设置', () => {
+            testDb.setSetting('single_loop', '1');
+            expect(testDb.getSetting('single_loop')).toBe('1');
+        });
+
+        it('重复写入同一键应覆盖旧值', () => {
+            testDb.setSetting('single_loop', '1');
+            testDb.setSetting('single_loop', '0');
+            expect(testDb.getSetting('single_loop')).toBe('0');
+
+            const rows = testDb.get('app_settings');
+            expect(rows).toHaveLength(1);
         });
     });
 

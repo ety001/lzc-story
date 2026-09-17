@@ -11,7 +11,7 @@ import {
   msSetPlaybackState,
   msSetPositionState,
 } from '@/lib/media-session';
-import type { AudioFile, AudioPlayerProps, AudioFilesBatchResponse } from '@/types';
+import type { AudioFile, AudioPlayerProps, AudioFilesBatchResponse, PlayerSettings } from '@/types';
 
 const PLAYLIST_ROW_HEIGHT = 52;
 const PLAYLIST_BUFFER = 8;
@@ -55,6 +55,8 @@ export default function AudioPlayer({
   const playTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
   const isLoopingRef = useRef(false);
+  /** 用户已手动切换循环时，忽略随后返回的服务端旧值 */
+  const loopUserOverrideRef = useRef(false);
   const historyProcessedRef = useRef(false);
   const pendingIdsRef = useRef<Set<number>>(new Set());
   const fileCacheRef = useRef(fileCache);
@@ -300,6 +302,30 @@ export default function AudioPlayer({
     }
   }, [isLooping]);
 
+  // 从服务端恢复单曲循环偏好
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(getApiUrl('/api/player-settings'));
+        if (!response.ok) return;
+        const data = (await response.json()) as PlayerSettings;
+        if (
+          !cancelled &&
+          !loopUserOverrideRef.current &&
+          typeof data.loop === 'boolean'
+        ) {
+          setIsLooping(data.loop);
+        }
+      } catch (error) {
+        console.error('加载单曲循环设置失败:', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!audioRef.current) return;
 
@@ -526,7 +552,18 @@ export default function AudioPlayer({
   };
 
   const toggleLoop = () => {
-    setIsLooping((prev) => !prev);
+    loopUserOverrideRef.current = true;
+    setIsLooping((prev) => {
+      const next = !prev;
+      fetch(getApiUrl('/api/player-settings'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loop: next }),
+      }).catch((error) => {
+        console.error('保存单曲循环设置失败:', error);
+      });
+      return next;
+    });
   };
 
   const selectTrack = (index: number) => {

@@ -38,6 +38,11 @@ export interface AdminConfig {
     created_at: string;
 }
 
+/** 播放器全局设置（服务端持久化） */
+export interface PlayerSettings {
+    loop: boolean;
+}
+
 // 管理员密码配置类型（用于数据库存储）
 export interface AdminPasswordConfig {
     id: number;
