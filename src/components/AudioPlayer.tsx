@@ -4,6 +4,12 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, SkipBack, Play, Pause, SkipForward, List, X, Repeat1 } from 'lucide-react';
 import { getApiUrl } from '@/lib/api';
 import { MAX_BATCH_IDS } from '@/lib/audio-list';
+import {
+  initMediaSession,
+  msSetMetadata,
+  msSetPlaybackState,
+  msSetPositionState,
+} from '@/lib/media-session';
 import type { AudioFile, AudioPlayerProps, AudioFilesBatchResponse } from '@/types';
 
 const PLAYLIST_ROW_HEIGHT = 52;
@@ -53,6 +59,22 @@ export default function AudioPlayer({
   const fileCacheRef = useRef(fileCache);
   const playlistScrollRef = useRef<HTMLDivElement>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 媒体会话动作回调（始终指向最新实现，避免闭包过期） */
+  const msActionsRef = useRef<{
+    play: () => void;
+    pause: () => void;
+    next: () => void;
+    prev: () => void;
+    seekBy: (delta: number) => void;
+    seekTo: (time: number) => void;
+  }>({
+    play: () => {},
+    pause: () => {},
+    next: () => {},
+    prev: () => {},
+    seekBy: () => {},
+    seekTo: () => {},
+  });
 
   const totalCount = audioIds.length;
   const useVirtualPlaylist = totalCount > windowThreshold;
@@ -378,6 +400,42 @@ export default function AudioPlayer({
     }
   }, [showPlaylist, useVirtualPlaylist, currentIndex, updatePlaylistWindow, ensureFiles, audioIds, totalCount]);
 
+  // 媒体会话接入（方向盘/耳机线控/锁屏媒体按键）
+  useEffect(() => {
+    initMediaSession({
+      play: () => msActionsRef.current.play(),
+      pause: () => msActionsRef.current.pause(),
+      next: () => msActionsRef.current.next(),
+      prev: () => msActionsRef.current.prev(),
+      seekBy: (delta) => msActionsRef.current.seekBy(delta),
+      seekTo: (time) => msActionsRef.current.seekTo(time),
+    });
+
+    const posTimer = setInterval(() => {
+      const audio = audioRef.current;
+      if (audio && audio.duration && Number.isFinite(audio.duration)) {
+        msSetPositionState(audio.duration, audio.currentTime, audio.playbackRate || 1);
+      }
+    }, 5000);
+
+    return () => clearInterval(posTimer);
+  }, []);
+
+  // 换歌时同步标题/专辑到系统媒体界面
+  useEffect(() => {
+    if (!currentFile) return;
+    msSetMetadata({
+      title: currentFile.filename,
+      artist: currentFile.album_name || album.name,
+      album: album.name || '懒猫故事机',
+    });
+  }, [currentFile, album.name]);
+
+  // 播放状态同步到媒体会话
+  useEffect(() => {
+    msSetPlaybackState(isPlaying ? 'playing' : 'paused');
+  }, [isPlaying]);
+
   const handlePlaylistScroll = () => {
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     scrollTimerRef.current = setTimeout(() => {
@@ -385,22 +443,33 @@ export default function AudioPlayer({
     }, 50);
   };
 
-  const togglePlayPause = async () => {
+  const pausePlayback = useCallback(() => {
     if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      isPlayingRef.current = false;
-    } else {
-      try {
-        await audioRef.current.play();
-        setIsPlaying(true);
-        isPlayingRef.current = true;
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('播放失败:', error);
-        }
+    audioRef.current.pause();
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    msSetPlaybackState('paused');
+  }, []);
+
+  const resumePlayback = useCallback(async () => {
+    if (!audioRef.current) return;
+    try {
+      await audioRef.current.play();
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      msSetPlaybackState('playing');
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('播放失败:', error);
       }
+    }
+  }, []);
+
+  const togglePlayPause = async () => {
+    if (isPlaying) {
+      pausePlayback();
+    } else {
+      await resumePlayback();
     }
   };
 
@@ -416,6 +485,40 @@ export default function AudioPlayer({
       addToPlayHistory(audioRef.current?.currentTime || 0);
       setCurrentIndex(currentIndex + 1);
     }
+  };
+
+  const seekBy = (delta: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      const max = Number.isFinite(audio.duration) ? audio.duration : audio.currentTime + delta;
+      audio.currentTime = Math.max(0, Math.min(audio.currentTime + delta, max));
+    } catch {
+      // seek 失败不影响播放
+    }
+  };
+
+  const seekTo = (time: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      const max = Number.isFinite(audio.duration) ? audio.duration : time;
+      audio.currentTime = Math.max(0, Math.min(time, max));
+    } catch {
+      // seek 失败不影响播放
+    }
+  };
+
+  // 同步媒体会话动作到最新闭包
+  msActionsRef.current = {
+    play: () => {
+      void resumePlayback();
+    },
+    pause: pausePlayback,
+    next: playNext,
+    prev: playPrevious,
+    seekBy,
+    seekTo,
   };
 
   const toggleLoop = () => {
