@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "懒猫故事机",
+  title: "大虎故事机",
   description: "简洁的音频播放器",
   icons: {
     icon: '/lazy-cat-favicon.png',

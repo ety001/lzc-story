@@ -31,7 +31,7 @@ export default function Home() {
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <LazyCatIcon size={40} />
-              <h1 className="text-2xl font-bold text-gray-900">懒猫故事机</h1>
+              <h1 className="text-2xl font-bold text-gray-900">大虎故事机</h1>
             </div>
           </div>
         </div>

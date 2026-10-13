@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-懒猫故事机 — 为懒猫微服设计的移动端音频播放器 Web 应用，面向老人给孩子播放故事。Next.js 15 App Router + React 19 + SQLite (better-sqlite3) + Tailwind CSS 4。
+大虎故事机 — 为懒猫微服设计的移动端音频播放器 Web 应用，面向老人给孩子播放故事。Next.js 15 App Router + React 19 + SQLite (better-sqlite3) + Tailwind CSS 4。
 
 ## 常用命令
 

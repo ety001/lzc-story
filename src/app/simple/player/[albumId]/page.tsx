@@ -323,7 +323,7 @@ export default function SimplePlayerPage() {
                 var meta = {
                   title: (file && file.filename) || '未知故事',
                   artist: (file && file.album_name) || (album && album.name) || '',
-                  album: (album && album.name) || '懒猫故事机'
+                  album: (album && album.name) || '大虎故事机'
                 };
                 try {
                   if (mode === 'lzc-bridge') {

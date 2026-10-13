@@ -11,7 +11,7 @@ export default function LazyCatIcon({ className = "w-16 h-16", size = 48 }: Lazy
   return (
     <Image
       src={'/lzc-story-logo.png'}
-      alt="懒猫故事机"
+      alt="大虎故事机"
       width={size}
       height={size}
       className={className}

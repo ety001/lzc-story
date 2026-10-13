@@ -158,7 +158,7 @@ export function msSetMetadata(track: MediaSessionTrackMeta | null | undefined): 
   const meta: MediaMetadataInit = {
     title: (track && track.title) || '未知故事',
     artist: (track && track.artist) || '',
-    album: (track && track.album) || '懒猫故事机',
+    album: (track && track.album) || '大虎故事机',
   };
 
   try {

@@ -107,7 +107,7 @@ export default function SimpleListPage() {
         `}</style>
       <div className="container">
         <div className="header">
-          <h1>懒猫故事机</h1>
+          <h1>大虎故事机</h1>
         </div>
 
         <div className="nav-links">

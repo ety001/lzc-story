@@ -67,7 +67,7 @@ export default function PasswordVerify({ onPasswordVerified, onBack }: PasswordV
           <div className="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
             <LazyCatIcon />
           </div>
-          <h1 className="text-2xl font-bold text-gray-700 mb-2">懒猫故事机</h1>
+          <h1 className="text-2xl font-bold text-gray-700 mb-2">大虎故事机</h1>
           <p className="text-gray-500">请输入管理员密码</p>
         </div>
 

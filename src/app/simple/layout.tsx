@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '懒猫故事机 - 简单版',
+  title: '大虎故事机 - 简单版',
   description: '简洁的音频播放器（兼容老版本 WebView）',
 };
 

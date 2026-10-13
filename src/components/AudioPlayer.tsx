@@ -457,7 +457,7 @@ export default function AudioPlayer({
     msSetMetadata({
       title: currentFile.filename,
       artist: currentFile.album_name || album.name,
-      album: album.name || '懒猫故事机',
+      album: album.name || '大虎故事机',
     });
   }, [currentFile, album.name]);
 
