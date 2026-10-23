@@ -634,28 +634,43 @@
 
       function handlePrev() {
         if (currentIndex > 0) {
-          currentIndex--;
-          loadTrack(0);
-          if (isPlaying && audioPlayer) {
-            setTimeout(function() {
-              if (audioPlayer) {
-                audioPlayer.play();
+          // 点按切歌即开始播放（含暂停状态）；缓存未命中时走异步路径保持原行为
+          var prevIdx = currentIndex - 1;
+          if (!playIndexSync(prevIdx)) {
+            ensureFiles([audioIds[prevIdx]], function() {
+              if (!playIndexSync(prevIdx)) {
+                currentIndex = prevIdx;
+                loadTrack(0);
+                if (isPlaying && audioPlayer) {
+                  setTimeout(function() {
+                    if (audioPlayer) {
+                      audioPlayer.play();
+                    }
+                  }, 100);
+                }
               }
-            }, 100);
+            });
           }
         }
       }
 
       function handleNext() {
         if (currentIndex < audioIds.length - 1) {
-          currentIndex++;
-          loadTrack(0);
-          if (isPlaying && audioPlayer) {
-            setTimeout(function() {
-              if (audioPlayer) {
-                audioPlayer.play();
+          var nextIdx = currentIndex + 1;
+          if (!playIndexSync(nextIdx)) {
+            ensureFiles([audioIds[nextIdx]], function() {
+              if (!playIndexSync(nextIdx)) {
+                currentIndex = nextIdx;
+                loadTrack(0);
+                if (isPlaying && audioPlayer) {
+                  setTimeout(function() {
+                    if (audioPlayer) {
+                      audioPlayer.play();
+                    }
+                  }, 100);
+                }
               }
-            }, 100);
+            });
           }
         }
       }
