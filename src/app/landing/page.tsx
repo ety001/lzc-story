@@ -57,6 +57,7 @@ export default function LandingPage() {
           <span className="loading-text">加载中...</span>
           <div className="loading-spinner" suppressHydrationWarning></div>
           <a href="/simple/list" className="simple-link" suppressHydrationWarning>直接进入简单版</a>
+          <a href="/car/index.html" className="simple-link" suppressHydrationWarning>进入车机静态版（老设备）</a>
         </div>
       </div>
       <script
