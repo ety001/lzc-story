@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="大虎故事机">
+<link rel="apple-touch-icon" href="/car/icon.png">
+<link rel="icon" type="image/png" href="/car/icon.png">
 <title>播放器 - 大虎故事机</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -469,6 +474,37 @@
         }
       }
 
+      // 同步切源播放：仅在目标文件已入缓存时使用（iOS 自动连播关键路径）
+      function playIndexSync(idx) {
+        if (idx < 0 || idx >= audioIds.length || !audioPlayer) return false;
+        var file = fileCache[audioIds[idx]];
+        if (!file) return false;
+        currentIndex = idx;
+        audioPlayer.src = '/api/audio-stream?path=' + encodeURIComponent(file.filepath);
+        if (currentTrackEl) currentTrackEl.textContent = file.filename;
+        msSetMetadata(file);
+        updatePlaylist();
+        if (prevBtn) prevBtn.disabled = currentIndex === 0;
+        if (nextBtn) nextBtn.disabled = currentIndex === audioIds.length - 1;
+        var promise = audioPlayer.play();
+        if (promise !== undefined) {
+          promise.then(function() {
+            isPlaying = true;
+            if (playPauseBtn) playPauseBtn.textContent = '暂停';
+            startPlayTimeTracking();
+            msSetPlaybackState('playing');
+          }).catch(function(error) {
+            console.error('自动播放失败:', error);
+          });
+        } else {
+          isPlaying = true;
+          if (playPauseBtn) playPauseBtn.textContent = '暂停';
+          startPlayTimeTracking();
+          msSetPlaybackState('playing');
+        }
+        return true;
+      }
+
       function toggleLoop() {
         isLooping = !isLooping;
         if (audioPlayer) {
@@ -787,7 +823,16 @@
               return;
             }
             if (currentIndex < audioIds.length - 1) {
-              handleNext();
+              // iOS 手势限制：ended 回调里一旦经过异步回调再 play() 会被拦截。
+              // 预取窗口（±3）通常已命中缓存，同步切源 + play() 可自动连播
+              var nextIdx = currentIndex + 1;
+              if (!playIndexSync(nextIdx)) {
+                ensureFiles([audioIds[nextIdx]], function() {
+                  if (!playIndexSync(nextIdx)) {
+                    handleNext();
+                  }
+                });
+              }
             } else {
               isPlaying = false;
               if (playPauseBtn) playPauseBtn.textContent = '播放';
