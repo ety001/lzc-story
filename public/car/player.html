@@ -114,6 +114,8 @@
       var scrollTimer = null;
 
       var mainContainer = document.getElementById('mainContainer');
+      // iOS 的 audio.volume 为只读（音量只受系统音量键控制），隐藏页面音量条避免误导
+      var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent || '');
       var audioPlayer = null;
       var currentTrackEl = null;
       var playPauseBtn = null;
@@ -701,7 +703,7 @@
         html += '<input type="range" class="progress-bar" id="progressBar" min="0" max="100" value="0" />';
         html += '<span class="time-info" id="timeInfo">00:00 / 00:00</span>';
         html += '</div>';
-        html += '<div class="volume-container">';
+        html += '<div class="volume-container"' + (IS_IOS ? ' style="display:none"' : '') + '>';
         html += '<label class="volume-label">音量</label>';
         html += '<input type="range" class="volume-bar" id="volumeBar" min="0" max="100" value="100" />';
         html += '</div>';
