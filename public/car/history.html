@@ -47,6 +47,22 @@
     </div>
   </div>
   <script>
+    // iOS 独立窗口（添加到主屏幕）模式：普通 <a> 导航可能被新开到 Safari。
+    // 拦截同源链接改为 location.href 跳转，保持在应用内
+    (function() {
+      document.addEventListener('click', function(e) {
+        var a = e.target;
+        while (a && a.tagName !== 'A') { a = a.parentNode; }
+        if (!a) return;
+        var href = a.getAttribute('href');
+        if (!href || href.charAt(0) === '#' || a.target === '_blank') return;
+        if (href.indexOf('://') !== -1 && href.indexOf(window.location.host) === -1) return;
+        e.preventDefault();
+        window.location.href = href;
+      }, false);
+    })();
+  </script>
+  <script>
     (function() {
       var historyList = document.getElementById('historyList');
 
